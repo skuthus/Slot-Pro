@@ -162,7 +162,7 @@ fn adapter_face() -> CartFace {
         (
             -37.0,
             -7.8,
-            "MADE IN ITHACA",
+            "HELLO FROM SEATTLE",
             2.7 * s,
             LABEL_INK,
             Align::Left,

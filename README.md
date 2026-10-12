@@ -12,6 +12,27 @@
 
 ---
 
+# Slot Pro
+
+Slot Pro is skuthus's fork of [slot](https://github.com/BrandonKowalski/slot) by
+[Brandon T. Kowalski](https://github.com/BrandonKowalski). Everything below this section is
+Brandon's original README, and the frontend, its design and most of its code are his work.
+Slot Pro is distributed under the same GNU GPL v3 as slot.
+
+Changes in this fork, detailed in the [changelog](CHANGELOG.md):
+
+- Tap power for Sleep, Restart or Power Off; hold it to save and shut down.
+- Three save slots per game with screenshots, opened with SELECT on the carousel or from a new
+  in-game menu (tap MENU).
+- Button remapping, for every game or per game, including X and Y.
+- Color correction modes, a game title on the carousel, a 12 / 24 hour clock and a GBC Frame
+  for Game Boy and Game Boy Color games.
+- Analog Mode, which plays like a real GBA: no save states, menus, rewind or resume.
+- Faster boots through a shader cache and reading a resumed game ahead.
+- A "slot pro." boot logo and About label.
+
+---
+
 # What is slot?
 
 A bespoke, Game Boy-centric frontend for the Anbernic RG SP.

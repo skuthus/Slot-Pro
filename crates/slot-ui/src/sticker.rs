@@ -49,9 +49,11 @@ pub const CREDITS: [&str; 10] = [
     "BUILDING THIS WITH CLAUDE.",
 ];
 
-pub const ORIGIN: [&str; 2] = ["S/LOT-USA", "MADE IN ITHACA"];
+pub const ORIGIN: [&str; 2] = ["S/LOT PRO", "HELLO FROM SEATTLE"];
 
-pub const COPYRIGHT: &str = "\u{a9} 2026 BRANDON T. KOWALSKI";
+// Slot Pro is skuthus's fork of slot by Brandon T. Kowalski, whose credits above are kept as he
+// wrote them. See README.md.
+pub const COPYRIGHT: &str = "\u{a9} 2026 SKUTHUS";
 
 pub const HOME: &str = "SEE README.";
 
@@ -234,7 +236,7 @@ pub fn sticker_face(f: &StickerFields) -> UndoFace {
 
     let bars_y = panel_y + 14;
     let bars_h = 62;
-    let payload = format!("SLOT-{}-{}", f.serial, f.dirty_digit);
+    let payload = format!("SLOT-PRO-{}-{}", f.serial, f.dirty_digit);
     if let Some(run) = code39(&format!("*{payload}*")) {
         let syms = run.len() as f32 / 9.0;
         let per_sym = 3.0 * CODE39_WIDE + 7.0 * CODE39_NARROW;
