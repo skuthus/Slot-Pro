@@ -96,6 +96,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
     assert_eq!(
         QuickRow::GAME.map(QuickRow::label),
         [
+            "Analog Mode",
             "Fast Forward",
             "Fast Forward Sound",
             "Rewind",

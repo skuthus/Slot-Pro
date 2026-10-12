@@ -24,6 +24,7 @@ pub enum QuickRow {
     CartTitle,
     ClockFormat,
     GbFrame,
+    Analog,
     Controls,
     RemapA,
     RemapB,
@@ -51,7 +52,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 41] = [
+    pub const ALL: [QuickRow; 42] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -69,6 +70,7 @@ impl QuickRow {
         QuickRow::CartTitle,
         QuickRow::ClockFormat,
         QuickRow::GbFrame,
+        QuickRow::Analog,
         QuickRow::Controls,
         QuickRow::RemapA,
         QuickRow::RemapB,
@@ -113,7 +115,8 @@ impl QuickRow {
         QuickRow::ClockFormat,
     ];
 
-    pub const GAME: [QuickRow; 6] = [
+    pub const GAME: [QuickRow; 7] = [
+        QuickRow::Analog,
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Rewind,
@@ -186,7 +189,8 @@ impl QuickRow {
             | QuickRow::Rewind
             | QuickRow::Turbo
             | QuickRow::Rumble
-            | QuickRow::EjectSave => &QuickRow::GAME,
+            | QuickRow::EjectSave
+            | QuickRow::Analog => &QuickRow::GAME,
             QuickRow::RemapA
             | QuickRow::RemapB
             | QuickRow::RemapL
@@ -217,7 +221,7 @@ impl QuickRow {
     pub fn parent(self) -> Option<QuickRow> {
         match self.page()[0] {
             QuickRow::GbaShader => Some(QuickRow::Screen),
-            QuickRow::FastForward => Some(QuickRow::Game),
+            QuickRow::Analog => Some(QuickRow::Game),
             QuickRow::RemapA => Some(QuickRow::Controls),
             QuickRow::GameLayout => Some(QuickRow::GameControls),
             _ => None,
@@ -257,6 +261,7 @@ impl QuickRow {
             QuickRow::CartTitle => "Game Title",
             QuickRow::ClockFormat => "Clock",
             QuickRow::GbFrame => "GBC Frame",
+            QuickRow::Analog => "Analog Mode",
             QuickRow::Controls | QuickRow::GameControls => "Controls",
             QuickRow::RemapA | QuickRow::GameRemapA => "A Button",
             QuickRow::RemapB | QuickRow::GameRemapB => "B Button",

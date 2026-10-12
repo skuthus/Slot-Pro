@@ -43,6 +43,7 @@ pub struct SlotState {
     pub cart_title: CartTitle,
     pub layout: Layout,
     pub gb_frame: GbFrame,
+    pub analog: bool,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -236,6 +237,7 @@ impl Default for SlotState {
             cart_title: CartTitle::Off,
             layout: Layout::default(),
             gb_frame: GbFrame::Off,
+            analog: false,
         }
     }
 }
@@ -254,7 +256,7 @@ pub fn read_slot_state(root: &Path) -> SlotState {
 
 pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     let text = format!(
-        "cart={}\ncart_platform={}\nbrightness={}\nblue_light={}\nvolume={}\nvolume_hp={}\nmuted={}\nmuted_hp={}\nclock_set={}\nutc_offset_min={}\nrumble={}\nff_speed={}\nff_sound={}\ncolour_correction={}\nshader_gba={}\nshader_gb={}\neject_save={}\nturbo={}\nrewind={}\ngb_palettes={}\ngb_palette={}\nclock_24h={}\ncart_title={}\nlayout={}\ngb_frame={}\n",
+        "cart={}\ncart_platform={}\nbrightness={}\nblue_light={}\nvolume={}\nvolume_hp={}\nmuted={}\nmuted_hp={}\nclock_set={}\nutc_offset_min={}\nrumble={}\nff_speed={}\nff_sound={}\ncolour_correction={}\nshader_gba={}\nshader_gb={}\neject_save={}\nturbo={}\nrewind={}\ngb_palettes={}\ngb_palette={}\nclock_24h={}\ncart_title={}\nlayout={}\ngb_frame={}\nanalog={}\n",
         s.cart.as_deref().unwrap_or(""),
         s.cart_platform.map_or(String::new(), platform_key),
         s.brightness,
@@ -279,7 +281,8 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
         s.clock_24h as u8,
         s.cart_title.name(),
         s.layout.name(),
-        s.gb_frame.name()
+        s.gb_frame.name(),
+        s.analog as u8
     );
     atomic_write(&state_path(root), text.as_bytes())
 }
@@ -310,6 +313,7 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut cart_title = None;
     let mut layout = None;
     let mut gb_frame = None;
+    let mut analog = None;
     for line in text.lines().filter(|l| !l.is_empty()) {
         let Some((key, value)) = line.split_once('=') else {
             continue;
@@ -339,6 +343,7 @@ fn parse(text: &str) -> Option<SlotState> {
             "cart_title" => cart_title = CartTitle::parse(value),
             "layout" => layout = Layout::parse(value),
             "gb_frame" => gb_frame = GbFrame::parse(value),
+            "analog" => analog = flag(value),
             "shader_gb" => shader_gb = Shader::parse(value).filter(|s| Shader::GB.contains(s)),
             _ => {}
         }
@@ -371,6 +376,7 @@ fn parse(text: &str) -> Option<SlotState> {
         cart_title: cart_title.unwrap_or(fallback.cart_title),
         layout: layout.unwrap_or(fallback.layout),
         gb_frame: gb_frame.unwrap_or(fallback.gb_frame),
+        analog: analog.unwrap_or(fallback.analog),
     })
 }
 

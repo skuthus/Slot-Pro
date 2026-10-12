@@ -685,6 +685,7 @@ impl App {
                 false => QuickValue::Hours12,
             }),
             QuickRow::Shader => Some(shader_value(self.screen_shader())),
+            QuickRow::Analog => Some(QuickValue::flag(self.state.analog)),
             QuickRow::GbFrame => Some(match self.state.gb_frame {
                 GbFrame::Off => QuickValue::Off,
                 GbFrame::Berry => QuickValue::Berry,
@@ -992,15 +993,19 @@ impl App {
     }
 
     pub fn may_rewind(&self) -> bool {
-        self.state.rewind && !self.link_active()
+        self.records_rewind() && !self.link_active()
     }
 
     pub fn turbo(&self) -> bool {
-        self.state.turbo
+        self.state.turbo && !self.state.analog
     }
 
     pub fn records_rewind(&self) -> bool {
-        self.state.rewind
+        self.state.rewind && !self.state.analog
+    }
+
+    pub fn analog(&self) -> bool {
+        self.state.analog
     }
 
     pub fn picture_rect(&self) -> [f32; 4] {
@@ -1015,7 +1020,7 @@ impl App {
     }
 
     pub fn may_fast_forward(&self) -> bool {
-        !self.link_active()
+        !self.link_active() && !self.state.analog
     }
 
     pub fn end_link(&mut self) {
@@ -1390,7 +1395,9 @@ impl App {
         match self.phase {
             Phase::Shelf if self.polaroids.is_some() => self.shelf_slots_input(action),
             Phase::Shelf => match action {
-                Action::GbaDown(Btn::Select) if self.core_picker.is_none() => {
+                Action::GbaDown(Btn::Select)
+                    if self.core_picker.is_none() && !self.state.analog =>
+                {
                     self.open_shelf_slots()
                 }
                 Action::GbaDown(Btn::Start) if self.core_picker.is_none() => {
@@ -1425,12 +1432,21 @@ impl App {
                 }
                 Action::Eject => self.eject(),
                 Action::GameMenu => self.game_menu_shortcut(),
+                _ if self.state.analog
+                    && matches!(
+                        action,
+                        Action::QuickMenu
+                            | Action::Polaroids
+                            | Action::SaveState
+                            | Action::LoadState
+                    ) => {}
                 Action::QuickMenu => self.open_pause(),
                 Action::Polaroids => self.open_slots(SlotMode::Load, false),
                 Action::SaveState => self.save_to(self.active_slot()),
                 Action::LoadState => {
                     self.load_slot(self.active_slot());
                 }
+                Action::RewindStart | Action::FfStart if self.state.analog => {}
                 Action::RewindStart if !self.may_rewind() => self.refuse(),
                 Action::FfStart if !self.may_fast_forward() => self.refuse(),
                 _ => {}
@@ -1524,6 +1540,7 @@ impl App {
             }
             QuickRow::CartTitle => s.cart_title = s.cart_title.step(right),
             QuickRow::ClockFormat => s.clock_24h = !s.clock_24h,
+            QuickRow::Analog => s.analog = !s.analog,
             QuickRow::GbFrame => s.gb_frame = s.gb_frame.step(right),
             QuickRow::RemapA
             | QuickRow::RemapB
@@ -2690,7 +2707,7 @@ impl App {
     }
 
     pub fn starting_clean(&self) -> bool {
-        matches!(self.phase, Phase::Inserting { clean: true, .. })
+        self.state.analog || matches!(self.phase, Phase::Inserting { clean: true, .. })
     }
 
     fn play_hold(&mut self) {
@@ -2738,6 +2755,7 @@ impl App {
             return;
         };
         let (state, sav) = trusted_write(snapshot.as_ref(), state, "eject");
+        let state = state.filter(|_| !self.state.analog);
         let state = state.filter(|_| self.state.eject_save);
         match persist::eject(
             root,
@@ -3264,6 +3282,7 @@ impl App {
             return;
         };
         let (state, sav) = trusted_write(snapshot.as_ref(), state, "autosave");
+        let state = state.filter(|_| !self.state.analog);
         let (root, platform, core, cart) =
             (root.clone(), self.platform, self.core, cart.to_owned());
         let failing = self.card_failing.clone();
@@ -3302,6 +3321,7 @@ impl App {
             return;
         };
         let (state, sav) = trusted_write(snapshot.as_ref(), state, "flush");
+        let state = state.filter(|_| !self.state.analog);
         let written = persist::flush(
             root,
             self.platform,

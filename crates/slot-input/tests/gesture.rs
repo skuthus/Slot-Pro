@@ -534,3 +534,52 @@ fn select_and_either_volume_key_mutes_for_a_volume_wheel_with_no_chord() {
         );
     }
 }
+
+#[test]
+fn analog_hands_select_plus_a_shoulder_to_the_game() {
+    for shoulder in [R1, L1] {
+        let mut g = Gestures::new();
+        g.set_analog(true);
+        assert!(g.feed(Down(Select), 0).is_empty());
+        assert_eq!(
+            g.feed(Down(shoulder), 50),
+            vec![GbaDown(Select), GbaDown(shoulder)]
+        );
+        assert_eq!(g.feed(Up(shoulder), 60), vec![GbaUp(shoulder)]);
+        assert_eq!(g.feed(Up(Select), 900), vec![GbaUp(Select)]);
+    }
+}
+
+#[test]
+fn without_analog_the_same_shoulders_save_and_load() {
+    let mut g = Gestures::new();
+    g.set_analog(true);
+    g.set_analog(false);
+    g.feed(Down(Select), 0);
+    assert_eq!(g.feed(Down(R1), 50), vec![SaveState]);
+    g.feed(Up(R1), 60);
+    g.feed(Up(Select), 70);
+    g.feed(Down(Select), 100);
+    assert_eq!(g.feed(Down(L1), 150), vec![LoadState]);
+}
+
+#[test]
+fn analog_leaves_the_other_select_chords_alone() {
+    for (key, want) in [
+        (Btn::Up, BrightnessUp),
+        (Btn::Down, BrightnessDown),
+        (Btn::Left, BlueLightDown),
+        (Btn::Right, BlueLightUp),
+        (Btn::Y, ColourCorrectionToggle),
+        (Btn::L2, PalettePrev),
+        (Btn::R2, PaletteNext),
+        (Btn::A, ShaderNext),
+        (Btn::B, ShaderPrev),
+        (Btn::VolUp, MuteToggle),
+    ] {
+        let mut g = Gestures::new();
+        g.set_analog(true);
+        g.feed(Down(Select), 0);
+        assert_eq!(g.feed(Down(key), 50), vec![want], "{key:?}");
+    }
+}

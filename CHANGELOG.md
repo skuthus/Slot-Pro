@@ -13,6 +13,7 @@
 - Buttons can be remapped for every game (Controls on the carousel menu) or per game (Controls in the in-game menu). X and Y can send any button or keep their turbo.
 - GBC Frame (Screen → GBC Frame): GB and GBC games play inside a Game Boy Color shell in Berry, Grape, Kiwi, Dandelion, Teal or Atomic Purple, at full size.
 - Boots faster: compiled shaders are kept on the card in `System/Cache/shaders`, and a resumed game's files are read while the screen comes up.
+- Analog Mode (Gameplay → Analog Mode) plays like a real GBA: no save states, no in-game menu, no rewind, fast forward or turbo, and no resume. Only the game's own save survives power off, and SELECT + L1 / R1 reach the game.
 
 ## [1.6.0](https://github.com/BrandonKowalski/slot/releases/tag/v1.6.0)
 

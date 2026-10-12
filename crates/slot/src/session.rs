@@ -154,6 +154,7 @@ impl Session {
 
     pub fn feed(&mut self, events: impl IntoIterator<Item = RawEvent>, now: Millis) {
         let mut actions = Vec::new();
+        self.gestures.set_analog(self.app.analog());
         for ev in events {
             actions.extend(self.gestures.feed(ev, now));
         }

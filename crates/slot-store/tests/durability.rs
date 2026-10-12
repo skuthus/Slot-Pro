@@ -215,6 +215,7 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             cart_title: CartTitle::Off,
             layout: Layout::default(),
             gb_frame: GbFrame::Off,
+            analog: false,
         }
     );
 }
@@ -238,6 +239,7 @@ fn the_quick_menu_settings_round_trip_as_their_own_lines() {
         clock_24h: false,
         cart_title: CartTitle::Above,
         gb_frame: GbFrame::Teal,
+        analog: true,
         layout: swapped_ab(),
         ..SlotState::default()
     };
@@ -260,6 +262,7 @@ fn the_quick_menu_settings_round_trip_as_their_own_lines() {
         "cart_title=above",
         "layout=b,a,l,r,select,start,x,y",
         "gb_frame=teal",
+        "analog=1",
     ] {
         assert!(text.lines().any(|l| l == line), "no {line} in {text:?}");
     }
@@ -528,4 +531,53 @@ fn every_gbc_frame_round_trips_and_a_stranger_reads_as_off() {
     )
     .unwrap();
     assert_eq!(read_slot_state(d.path()).gb_frame, GbFrame::Off);
+}
+
+#[test]
+fn analog_defaults_off_round_trips_and_reads_as_its_own_line() {
+    let d = tmp_root();
+    assert!(
+        !read_slot_state(d.path()).analog,
+        "a first boot is not analog"
+    );
+    write_slot_state(
+        d.path(),
+        &SlotState {
+            analog: true,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    assert!(read_slot_state(d.path()).analog);
+    let text = std::fs::read_to_string(d.path().join("Config/slot.state")).unwrap();
+    assert!(text.lines().any(|l| l == "analog=1"), "{text}");
+    write_slot_state(d.path(), &SlotState::default()).unwrap();
+    let text = std::fs::read_to_string(d.path().join("Config/slot.state")).unwrap();
+    assert!(text.lines().any(|l| l == "analog=0"), "{text}");
+    assert!(!read_slot_state(d.path()).analog);
+}
+
+#[test]
+fn a_slot_state_from_before_analog_reads_it_as_off() {
+    let d = tmp_root();
+    write_slot_state(
+        d.path(),
+        &SlotState {
+            cart: Some("Emerald".into()),
+            analog: true,
+            ..Default::default()
+        },
+    )
+    .unwrap();
+    let path = d.path().join("Config/slot.state");
+    let old: String = std::fs::read_to_string(&path)
+        .unwrap()
+        .lines()
+        .filter(|l| !l.starts_with("analog="))
+        .map(|l| format!("{l}\n"))
+        .collect();
+    std::fs::write(&path, old).unwrap();
+    let s = read_slot_state(d.path());
+    assert_eq!(s.cart.as_deref(), Some("Emerald"));
+    assert!(!s.analog);
 }

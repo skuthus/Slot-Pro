@@ -82,6 +82,7 @@ pub struct Gestures {
     r2_refused: bool,
     r2_last_release: Option<Millis>,
     rewinding: bool,
+    analog: bool,
 }
 
 fn ramp_due(down: Option<Millis>, last: Option<Millis>, now: Millis) -> bool {
@@ -97,6 +98,10 @@ fn ramp_due(down: Option<Millis>, last: Option<Millis>, now: Millis) -> bool {
 impl Gestures {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub fn set_analog(&mut self, on: bool) {
+        self.analog = on;
     }
 
     pub fn ff_latched(&self) -> bool {
@@ -161,7 +166,9 @@ impl Gestures {
     }
 
     fn down(&mut self, b: Btn, now: Millis) -> Vec<Action> {
-        if let (true, Some((bit, action))) = (self.chording(now), chord(b)) {
+        let chord = chord(b)
+            .filter(|(_, a)| !(self.analog && matches!(a, Action::SaveState | Action::LoadState)));
+        if let (true, Some((bit, action))) = (self.chording(now), chord) {
             self.mark_chorded();
             self.chord_held |= bit;
             return vec![action];
