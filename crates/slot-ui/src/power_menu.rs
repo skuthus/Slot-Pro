@@ -3,12 +3,18 @@ use crate::text;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum PowerChoice {
+    Sleep,
     Restart,
     PowerOff,
 }
 
 impl PowerChoice {
-    pub const ALL: [PowerChoice; 2] = [PowerChoice::Restart, PowerChoice::PowerOff];
+    pub const ALL: [PowerChoice; 3] = [
+        PowerChoice::Sleep,
+        PowerChoice::Restart,
+        PowerChoice::PowerOff,
+    ];
+    pub const SHUTDOWNS: [PowerChoice; 2] = [PowerChoice::Restart, PowerChoice::PowerOff];
 
     pub fn index(self) -> usize {
         self as usize
@@ -16,6 +22,7 @@ impl PowerChoice {
 
     pub fn text(self) -> &'static str {
         match self {
+            PowerChoice::Sleep => "Sleep",
             PowerChoice::Restart => "Restart",
             PowerChoice::PowerOff => "Power Off",
         }

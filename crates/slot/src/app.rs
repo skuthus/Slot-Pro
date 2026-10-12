@@ -8,9 +8,9 @@ use slot_input::{Action, Btn, MUTE_CHORD_MS};
 use slot_power::{Battery, Charge, LedState, LidPolicy, Power};
 use slot_retro::LinkChannel;
 use slot_store::{
-    format_stamp, read_slot_state, scan, write_slot_state, Cart, Core, GbPalette, Platform, Shader,
-    SlotState, StateEntry, StateRing, Theme, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, FF_SPEEDS, RING_MAX,
-    VOLUME_MAX,
+    format_stamp, read_slot_state, scan, write_slot_state, Cart, CartTitle, ColourCorrection, Core,
+    GbPalette, Platform, Shader, SlotState, StateEntry, StateRing, Theme, BLUE_LIGHT_MAX,
+    BRIGHTNESS_MAX, FF_SPEEDS, RING_MAX, VOLUME_MAX,
 };
 use slot_ui::{
     board_from, board_zoom, draw_backdrop, draw_empty_slot, draw_footer, draw_slot_name,
@@ -326,6 +326,7 @@ pub struct App {
     slot_letter: Option<char>,
     shelf_named: Option<Millis>,
     shelf_clock: slot_ui::Printed,
+    cart_title_face: Option<(TexId, u32, u32)>,
     hud: Hud,
     screen: f32,
     lift: f32,
@@ -451,6 +452,7 @@ impl App {
             slot_letter: None,
             shelf_named: None,
             shelf_clock: slot_ui::Printed::default(),
+            cart_title_face: None,
             hud: Hud::new(),
             screen: 0.0,
             lift: 1.0,
@@ -652,7 +654,21 @@ impl App {
         match row {
             QuickRow::FastForward => QuickValue::speed(self.state.ff_speed),
             QuickRow::FastForwardSound => Some(QuickValue::flag(self.state.ff_sound)),
-            QuickRow::ColourCorrection => Some(QuickValue::flag(self.state.colour_correction)),
+            QuickRow::ColourCorrection => Some(match self.state.colour_correction {
+                ColourCorrection::Off => QuickValue::Off,
+                ColourCorrection::GbaOnly => QuickValue::GbaOnly,
+                ColourCorrection::GbAndGbc => QuickValue::GbAndGbc,
+                ColourCorrection::All => QuickValue::All,
+            }),
+            QuickRow::CartTitle => Some(match self.state.cart_title {
+                CartTitle::Off => QuickValue::Off,
+                CartTitle::Below => QuickValue::Below,
+                CartTitle::Above => QuickValue::Above,
+            }),
+            QuickRow::ClockFormat => Some(match self.state.clock_24h {
+                true => QuickValue::Hours24,
+                false => QuickValue::Hours12,
+            }),
             QuickRow::GbPalettes => Some(QuickValue::flag(self.state.gb_palettes)),
             QuickRow::GbaShader => Some(shader_value(self.state.shader_gba)),
             QuickRow::GbShader => Some(shader_value(self.state.shader_gb)),
@@ -723,6 +739,10 @@ impl App {
 
     pub fn set_battery_percent_face(&mut self, face: TexId, w: u32) {
         self.battery_percent = slot_ui::Printed::new(face, w);
+    }
+
+    pub fn set_cart_title_face(&mut self, face: Option<(TexId, u32, u32)>) {
+        self.cart_title_face = face;
     }
 
     pub fn set_shelf_clock_face(&mut self, face: TexId, w: u32) {
@@ -1047,8 +1067,20 @@ impl App {
         }
     }
 
-    pub fn colour_correction(&self) -> bool {
+    pub fn colour_correction(&self, platform: Platform) -> bool {
+        self.state.colour_correction.applies_to(platform)
+    }
+
+    pub fn colour_mode(&self) -> ColourCorrection {
         self.state.colour_correction
+    }
+
+    pub fn clock_24h(&self) -> bool {
+        self.state.clock_24h
+    }
+
+    pub fn cart_title(&self) -> CartTitle {
+        self.state.cart_title
     }
 
     pub fn powering_off(&self) -> bool {
@@ -1194,6 +1226,14 @@ impl App {
             match action {
                 Action::LidClose => return self.doze(),
                 Action::LidOpen => return self.wake(),
+                Action::PowerTap => {
+                    self.power_menu = None;
+                    return;
+                }
+                Action::PowerHold => {
+                    self.power_menu = None;
+                    return self.power_hold();
+                }
                 _ => return self.power_menu_input(action),
             }
         }
@@ -1212,7 +1252,7 @@ impl App {
                 return self.flush_resume();
             }
             Action::PowerTap => return self.power_press(),
-            Action::PowerHold => return self.open_power_menu(),
+            Action::PowerHold => return self.power_hold(),
             Action::PowerOff => return,
             _ => {}
         }
@@ -1352,6 +1392,8 @@ impl App {
             | QuickRow::GbaShader
             | QuickRow::GbShader
             | QuickRow::GbPalettes
+            | QuickRow::CartTitle
+            | QuickRow::ClockFormat
             | QuickRow::Rumble => {}
         }
     }
@@ -1368,9 +1410,11 @@ impl App {
             }
             QuickRow::FastForwardSound => s.ff_sound = !s.ff_sound,
             QuickRow::ColourCorrection => {
-                s.colour_correction = !s.colour_correction;
-                self.colour_pending = Some(s.colour_correction);
+                s.colour_correction = s.colour_correction.step(right);
+                self.colour_pending = Some(s.colour_correction.applies_to(self.platform));
             }
+            QuickRow::CartTitle => s.cart_title = s.cart_title.step(right),
+            QuickRow::ClockFormat => s.clock_24h = !s.clock_24h,
             QuickRow::GbaShader => {
                 let to = s.shader_gba.step(&Shader::GBA, right);
                 if to == s.shader_gba {
@@ -1445,8 +1489,10 @@ impl App {
         if action == Action::ColourCorrectionToggle {
             self.change_setting(QuickRow::ColourCorrection, true);
             let said = match self.state.colour_correction {
-                true => Toast::ColourOn,
-                false => Toast::ColourOff,
+                ColourCorrection::Off => Toast::ColourOff,
+                ColourCorrection::GbaOnly => Toast::ColourGba,
+                ColourCorrection::GbAndGbc => Toast::ColourGbGbc,
+                ColourCorrection::All => Toast::ColourOn,
             };
             self.hud.toast(said, self.now());
             return true;
@@ -1964,7 +2010,8 @@ impl App {
             } else {
                 PowerChoice::PowerOff
             };
-            if let Some((tex, w, h)) = self.shutdown_faces.get(which.index()).copied() {
+            let at = PowerChoice::SHUTDOWNS.iter().position(|c| *c == which);
+            if let Some((tex, w, h)) = at.and_then(|i| self.shutdown_faces.get(i)).copied() {
                 out.push(Draw::Tex {
                     x: ((OUT_W - w) / 2) as f32,
                     y: ((OUT_H - h) / 2) as f32,
@@ -2011,6 +2058,14 @@ impl App {
                     }
                     _ => {
                         self.shelf().draw(self.shelf_shake(), out);
+                        if let Some(face) = self.cart_title_face {
+                            self.shelf().draw_title(
+                                face,
+                                self.state.cart_title,
+                                self.shelf_shake(),
+                                out,
+                            );
+                        }
                         draw_slot_name(self.shelf_platform, self.slot_name_alpha(), out);
                     }
                 }
@@ -2589,8 +2644,14 @@ impl App {
         }
         match self.phase {
             Phase::Doze { .. } => self.wake(),
-            _ => self.doze(),
+            _ => self.open_power_menu(),
         }
+    }
+
+    fn power_hold(&mut self) {
+        self.woke_on_press = false;
+        self.flush_resume();
+        self.begin_power_off();
     }
 
     fn open_power_menu(&mut self) {
@@ -2621,6 +2682,7 @@ impl App {
                 self.power_menu = None;
                 self.close_game_menu();
                 match PowerChoice::ALL[index] {
+                    PowerChoice::Sleep => self.doze(),
                     PowerChoice::Restart => {
                         self.restarting = true;
                         self.act_at = self.now() + SHUTDOWN_SHOW_MS;

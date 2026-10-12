@@ -145,7 +145,7 @@ fn the_backlight_follows_brightness_from_boot() {
 fn the_menu_covers_the_screen_in_the_case_materials() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mut a = app_playing_in(d.path(), "Emerald");
-    a.apply(Action::PowerHold);
+    a.apply(Action::PowerTap);
 
     let mut out = Vec::new();
     a.draw(&mut out);
@@ -173,8 +173,6 @@ fn a_power_off_draws_a_shutdown_screen_over_everything() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mut a = app_playing_in(d.path(), "Emerald");
     a.apply(Action::PowerHold);
-    a.apply(Action::GbaDown(Btn::Down));
-    a.apply(Action::GbaDown(Btn::A));
 
     let mut out = Vec::new();
     a.draw(&mut out);
@@ -194,12 +192,17 @@ fn a_power_off_draws_a_shutdown_screen_over_everything() {
 }
 
 #[test]
-fn a_hold_opens_the_menu_and_commits_nothing() {
+fn a_tap_opens_the_menu_on_sleep_and_commits_nothing() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mut a = app_playing_in(d.path(), "Emerald");
-    a.apply(Action::PowerHold);
-    assert_eq!(a.power_menu(), Some(0), "the menu opens on Restart");
+    a.apply(Action::PowerTap);
+    assert_eq!(
+        a.power_menu(),
+        Some(PowerChoice::Sleep.index()),
+        "the menu opens on Sleep"
+    );
     assert!(!a.powering_off() && !a.restarting());
+    assert!(matches!(a.phase(), Phase::Playing { .. }));
     assert!(
         StateRing::new(d.path(), Platform::Gba, Core::Mgba, "Emerald")
             .read_resume()
@@ -210,11 +213,63 @@ fn a_hold_opens_the_menu_and_commits_nothing() {
 }
 
 #[test]
+fn a_second_tap_closes_the_menu_without_doing_anything() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let mut a = app_playing_in(d.path(), "Emerald");
+    a.apply(Action::PowerTap);
+    a.apply(Action::PowerTap);
+    assert_eq!(a.power_menu(), None);
+    assert!(!a.powering_off() && !a.restarting());
+    assert!(matches!(a.phase(), Phase::Playing { .. }));
+}
+
+#[test]
+fn the_sleep_row_dozes_and_leaves_the_menu_closed() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let mut a = app_playing_in(d.path(), "Emerald");
+    a.apply(Action::PowerTap);
+    a.apply(Action::GbaDown(Btn::A));
+    assert_eq!(a.power_menu(), None);
+    assert!(matches!(a.phase(), Phase::Doze { .. }));
+    assert!(!a.powering_off() && !a.restarting());
+}
+
+#[test]
+fn a_hold_powers_off_with_the_resume_state_durable() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let mut a = app_playing_in(d.path(), "Emerald");
+    a.apply(Action::PowerHold);
+    assert!(a.powering_off() && !a.restarting());
+    assert_eq!(a.power_menu(), None);
+    assert!(
+        StateRing::new(d.path(), Platform::Gba, Core::Mgba, "Emerald")
+            .read_resume()
+            .unwrap()
+            .is_some(),
+        "the hold is the safe shutdown: state must be on the card before the machine stops"
+    );
+    assert!(!a.ready_to_power_off(), "the screen must be shown first");
+    a.tick_ms(600_000);
+    assert!(a.ready_to_power_off());
+}
+
+#[test]
+fn a_hold_with_the_menu_open_powers_off_and_closes_it() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let mut a = app_playing_in(d.path(), "Emerald");
+    a.apply(Action::PowerTap);
+    assert!(a.power_menu().is_some());
+    a.apply(Action::PowerHold);
+    assert_eq!(a.power_menu(), None);
+    assert!(a.powering_off());
+}
+
+#[test]
 fn the_menu_moves_and_wraps_at_both_ends() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mut a = app_playing_in(d.path(), "Emerald");
     let last = PowerChoice::ALL.len() - 1;
-    a.apply(Action::PowerHold);
+    a.apply(Action::PowerTap);
     a.apply(Action::GbaDown(Btn::Up));
     assert_eq!(a.power_menu(), Some(last), "up from the top did not wrap");
     a.apply(Action::GbaDown(Btn::Down));
@@ -229,7 +284,7 @@ fn the_menu_moves_and_wraps_at_both_ends() {
 fn b_leaves_the_menu_without_doing_anything() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mut a = app_playing_in(d.path(), "Emerald");
-    a.apply(Action::PowerHold);
+    a.apply(Action::PowerTap);
     a.apply(Action::GbaDown(Btn::B));
     assert_eq!(a.power_menu(), None);
     assert!(!a.powering_off() && !a.restarting());
@@ -241,11 +296,15 @@ fn b_leaves_the_menu_without_doing_anything() {
 
 #[test]
 fn each_row_commits_to_its_own_outcome() {
-    for (down, want) in [(0, "restart"), (1, "off")] {
+    for (choice, want) in [
+        (PowerChoice::Sleep, "sleep"),
+        (PowerChoice::Restart, "restart"),
+        (PowerChoice::PowerOff, "off"),
+    ] {
         let d = tmp_root_with_carts(&["Emerald"]);
         let mut a = app_playing_in(d.path(), "Emerald");
-        a.apply(Action::PowerHold);
-        for _ in 0..down {
+        a.apply(Action::PowerTap);
+        for _ in 0..choice.index() {
             a.apply(Action::GbaDown(Btn::Down));
         }
         a.apply(Action::GbaDown(Btn::A));
@@ -255,6 +314,9 @@ fn each_row_commits_to_its_own_outcome() {
             "{want}: the menu closes on the choice"
         );
         match want {
+            "sleep" => assert!(
+                matches!(a.phase(), Phase::Doze { .. }) && !a.restarting() && !a.powering_off()
+            ),
             "restart" => assert!(a.restarting() && !a.powering_off()),
             _ => assert!(a.powering_off() && !a.restarting()),
         }
@@ -265,8 +327,10 @@ fn each_row_commits_to_its_own_outcome() {
 fn the_shutdown_screen_is_up_before_the_machine_may_stop() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mut a = app_playing_in(d.path(), "Emerald");
-    a.apply(Action::PowerHold);
-    a.apply(Action::GbaDown(Btn::Down));
+    a.apply(Action::PowerTap);
+    for _ in 0..PowerChoice::PowerOff.index() {
+        a.apply(Action::GbaDown(Btn::Down));
+    }
     a.apply(Action::GbaDown(Btn::A));
 
     assert!(a.powering_off(), "the choice decides immediately");
@@ -317,7 +381,7 @@ fn the_power_menu_holds_the_core_still() {
         "the core should be running, or this test proves nothing"
     );
 
-    hold_power(&mut s, &mut now);
+    tap_power(&mut s, &mut now);
     assert_eq!(s.app().power_menu(), Some(0), "the menu never opened");
     await_paused(&mut s);
 }
@@ -329,16 +393,31 @@ fn a_committed_shutdown_holds_the_core_still() {
     let mut now = 0;
     play(&mut s, &mut now);
 
-    hold_power(&mut s, &mut now);
-    s.app_mut().apply(Action::GbaDown(Btn::Down));
+    tap_power(&mut s, &mut now);
+    for _ in 0..PowerChoice::PowerOff.index() {
+        s.app_mut().apply(Action::GbaDown(Btn::Down));
+    }
     s.app_mut().apply(Action::GbaDown(Btn::A));
-    assert!(s.app().powering_off(), "Power Off is the second row");
+    assert!(s.app().powering_off(), "Power Off is the last row");
     s.update(DT);
     await_paused(&mut s);
 }
 
 #[test]
-fn power_pressed_while_dozing_lights_the_panel_before_the_menu_is_raised() {
+fn a_held_power_button_holds_the_core_still_for_the_shutdown() {
+    let d = tmp_root_with_real_carts(&["Advance Wars", "Emerald"]);
+    let (mut s, _motor) = session_with_platform(d.path());
+    let mut now = 0;
+    play(&mut s, &mut now);
+
+    hold_power(&mut s, &mut now);
+    assert!(s.app().powering_off(), "the hold is the shutdown");
+    s.update(DT);
+    await_paused(&mut s);
+}
+
+#[test]
+fn power_pressed_while_dozing_lights_the_panel_before_anything_else_happens() {
     let d = tmp_root_with_carts(&["Emerald"]);
     clocked(d.path());
     let mut s = Session::boot(d.path().to_path_buf());
@@ -351,8 +430,8 @@ fn power_pressed_while_dozing_lights_the_panel_before_the_menu_is_raised() {
     );
 
     let mut now = 0;
-    event(&mut s, RawEvent::Down(Btn::Power), &mut now);
-    event(&mut s, RawEvent::Up(Btn::Power), &mut now);
+    tap_power(&mut s, &mut now);
+    event(&mut s, RawEvent::Down(Btn::A), &mut now);
     assert!(
         matches!(s.app().phase(), Phase::Doze { .. }),
         "the device never dozed"
@@ -374,14 +453,18 @@ fn power_pressed_while_dozing_lights_the_panel_before_the_menu_is_raised() {
         "the panel came on over a device still dozing behind it"
     );
 
-    let pressed = now;
-    while now < pressed + POWER_HOLD_MS + FRAME_MS {
-        step(&mut s, &mut now);
-    }
+    event(&mut s, RawEvent::Up(Btn::Power), &mut now);
+    assert_eq!(
+        s.app().power_menu(),
+        None,
+        "the press that woke the panel must not also raise the menu"
+    );
+
+    tap_power(&mut s, &mut now);
     assert_eq!(
         s.app().power_menu(),
         Some(0),
-        "the hold no longer raises the menu"
+        "the next tap no longer raises the menu"
     );
     assert_eq!(
         backlight.load(Ordering::Relaxed),
@@ -400,20 +483,25 @@ fn the_press_that_woke_the_panel_does_not_doze_again_when_it_is_let_go() {
     let lit = backlight.load(Ordering::Relaxed);
 
     let mut now = 0;
-    event(&mut s, RawEvent::Down(Btn::Power), &mut now);
-    event(&mut s, RawEvent::Up(Btn::Power), &mut now);
+    tap_power(&mut s, &mut now);
+    event(&mut s, RawEvent::Down(Btn::A), &mut now);
     assert!(matches!(s.app().phase(), Phase::Doze { .. }));
 
-    event(&mut s, RawEvent::Down(Btn::Power), &mut now);
-    event(&mut s, RawEvent::Up(Btn::Power), &mut now);
+    tap_power(&mut s, &mut now);
     assert!(
         !matches!(s.app().phase(), Phase::Doze { .. }),
         "the tap that woke the device put it straight back to sleep"
     );
+    assert_eq!(
+        s.app().power_menu(),
+        None,
+        "the tap that woke the device also raised the menu"
+    );
     assert_eq!(backlight.load(Ordering::Relaxed), lit);
 
-    event(&mut s, RawEvent::Down(Btn::Power), &mut now);
-    event(&mut s, RawEvent::Up(Btn::Power), &mut now);
+    tap_power(&mut s, &mut now);
+    assert_eq!(s.app().power_menu(), Some(0), "the next tap opens the menu");
+    event(&mut s, RawEvent::Down(Btn::A), &mut now);
     assert!(
         matches!(s.app().phase(), Phase::Doze { .. }),
         "POWER stopped being able to put the device out"
@@ -430,6 +518,11 @@ fn await_paused(s: &mut Session) {
         );
         std::thread::sleep(Duration::from_millis(1));
     }
+}
+
+fn tap_power(s: &mut Session, now: &mut Millis) {
+    event(s, RawEvent::Down(Btn::Power), now);
+    event(s, RawEvent::Up(Btn::Power), now);
 }
 
 fn hold_power(s: &mut Session, now: &mut Millis) {

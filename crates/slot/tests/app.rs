@@ -1956,12 +1956,11 @@ fn the_power_menus_own_buttons_never_reach_the_game() {
     let d = common::tmp_root_with_carts(&["Emerald", "Zzz"]);
     let mut s = session_playing(d.path());
     s.feed([RawEvent::Down(Btn::Power)], 1000);
-    s.feed([], 2100);
+    s.feed([RawEvent::Up(Btn::Power)], 1100);
     assert!(
         s.app().power_menu().is_some(),
         "the power menu never opened"
     );
-    s.feed([RawEvent::Up(Btn::Power)], 2110);
     s.feed([RawEvent::Down(Btn::Down)], 2200);
     assert_eq!(
         pad(&s) & ButtonMask::DOWN,
@@ -2087,18 +2086,20 @@ fn the_colour_shortcut_reaches_the_core_already_running() {
     let (mut s, _motor) = common::session_with_platform(d.path());
     s.app_mut().apply(slot_input::Action::Insert);
 
-    let before = s.app().colour_correction();
+    let platform = slot_store::Platform::Gba;
+    let before = s.app().colour_mode();
     s.app_mut()
         .apply(slot_input::Action::ColourCorrectionToggle);
 
+    let after = s.app().colour_mode();
     assert_eq!(
-        s.app().colour_correction(),
-        !before,
-        "the shortcut did not flip the setting"
+        after,
+        before.step(true),
+        "the shortcut did not step the setting"
     );
     assert_eq!(
         s.app_mut().take_colour_correction(),
-        Some(!before),
+        Some(after.applies_to(platform)),
         "the change was written down but never queued for the core already running, which is \
          the whole of what this shortcut is for"
     );
@@ -2110,10 +2111,12 @@ fn the_colour_shortcut_names_the_state_it_arrived_at() {
     let (mut s, _motor) = common::session_with_platform(d.path());
     s.app_mut().apply(slot_input::Action::Insert);
 
-    for _ in 0..2 {
-        let want = match s.app().colour_correction() {
-            true => slot_ui::Toast::ColourOff,
-            false => slot_ui::Toast::ColourOn,
+    for _ in 0..4 {
+        let want = match s.app().colour_mode().step(true) {
+            slot_store::ColourCorrection::Off => slot_ui::Toast::ColourOff,
+            slot_store::ColourCorrection::GbaOnly => slot_ui::Toast::ColourGba,
+            slot_store::ColourCorrection::GbAndGbc => slot_ui::Toast::ColourGbGbc,
+            slot_store::ColourCorrection::All => slot_ui::Toast::ColourOn,
         };
         s.app_mut()
             .apply(slot_input::Action::ColourCorrectionToggle);

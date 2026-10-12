@@ -5,8 +5,9 @@ use std::time::{Duration, Instant};
 
 use slot::app::Phase;
 use slot::session::Session;
-use slot_input::{Btn, Millis, RawEvent};
+use slot_input::{Btn, Millis, RawEvent, POWER_HOLD_MS};
 use slot_store::{read_slot_state, Core, Platform, StateRing};
+use slot_ui::PowerChoice;
 
 const FRAME_MS: Millis = 16;
 const DT: f32 = 1.0 / 60.0;
@@ -41,6 +42,14 @@ impl Pass {
     fn tap(&mut self, b: Btn) {
         self.event(RawEvent::Down(b));
         self.event(RawEvent::Up(b));
+    }
+
+    fn hold(&mut self, b: Btn, ms: Millis) {
+        self.event(RawEvent::Down(b));
+        let until = self.now + ms;
+        while self.now < until {
+            self.step();
+        }
     }
 
     fn chord(&mut self, b: Btn) {
@@ -172,12 +181,19 @@ fn the_whole_pass_from_boot_to_resume() {
     assert_eq!(p.playing(), Some("Emerald"));
 
     p.tap(Btn::Power);
+    assert_eq!(
+        p.session.app().power_menu(),
+        Some(PowerChoice::Sleep.index()),
+        "a power tap opens the menu on Sleep"
+    );
+    p.tap(Btn::A);
     assert!(matches!(p.session.app().phase(), Phase::Doze { .. }));
     assert!(!p.session.app().powering_off());
     p.tap(Btn::Power);
     assert_eq!(p.playing(), Some("Emerald"));
 
-    p.tap(Btn::Power);
+    p.hold(Btn::Power, POWER_HOLD_MS + FRAME_MS);
+    assert!(p.session.app().powering_off(), "the hold is a shutdown");
     drop(p);
     let mut p = Pass::boot(root);
     assert!(

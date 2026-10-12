@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 use common::{session_with_platform, tmp_root_with_carts, tmp_root_with_real_carts};
 use slot::app::Phase;
 use slot::session::Session;
-use slot_input::{Btn, Millis, RawEvent, MENU_HOLD_MS, POWER_HOLD_MS};
+use slot_input::{Btn, Millis, RawEvent, MENU_HOLD_MS};
 use slot_store::{write_slot_state, SlotState};
 
 const FRAME_MS: Millis = 16;
@@ -134,11 +134,8 @@ fn the_power_menu_takes_the_motor_down() {
         "the motor should be running, or this test proves nothing"
     );
 
-    let pressed = now;
     event(&mut s, RawEvent::Down(Btn::Power), &mut now);
-    while now < pressed + POWER_HOLD_MS + FRAME_MS {
-        step(&mut s, &mut now);
-    }
+    event(&mut s, RawEvent::Up(Btn::Power), &mut now);
     assert_eq!(s.app().power_menu(), Some(0), "the menu never opened");
     assert_eq!(
         motor.last(),

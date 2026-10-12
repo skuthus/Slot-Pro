@@ -30,7 +30,7 @@ pub struct SlotState {
     pub rumble: bool,
     pub ff_speed: u8,
     pub ff_sound: bool,
-    pub colour_correction: bool,
+    pub colour_correction: ColourCorrection,
     pub shader_gba: Shader,
     pub shader_gb: Shader,
     pub eject_save: bool,
@@ -38,6 +38,88 @@ pub struct SlotState {
     pub rewind: bool,
     pub gb_palettes: bool,
     pub gb_palette: GbPalette,
+    pub clock_24h: bool,
+    pub cart_title: CartTitle,
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum ColourCorrection {
+    Off,
+    GbaOnly,
+    GbAndGbc,
+    All,
+}
+
+impl ColourCorrection {
+    pub const ALL: [ColourCorrection; 4] = [
+        ColourCorrection::Off,
+        ColourCorrection::GbaOnly,
+        ColourCorrection::GbAndGbc,
+        ColourCorrection::All,
+    ];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            ColourCorrection::Off => "off",
+            ColourCorrection::GbaOnly => "gba",
+            ColourCorrection::GbAndGbc => "gb_gbc",
+            ColourCorrection::All => "all",
+        }
+    }
+
+    pub fn parse(name: &str) -> Option<ColourCorrection> {
+        match name {
+            "0" => Some(ColourCorrection::Off),
+            "1" | "on" => Some(ColourCorrection::All),
+            _ => Self::ALL.into_iter().find(|c| c.name() == name),
+        }
+    }
+
+    pub fn applies_to(self, platform: Platform) -> bool {
+        match self {
+            ColourCorrection::Off => false,
+            ColourCorrection::GbaOnly => platform == Platform::Gba,
+            ColourCorrection::GbAndGbc => platform != Platform::Gba,
+            ColourCorrection::All => true,
+        }
+    }
+
+    pub fn step(self, right: bool) -> ColourCorrection {
+        step_in(&Self::ALL, self, right)
+    }
+}
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum CartTitle {
+    Off,
+    Below,
+    Above,
+}
+
+impl CartTitle {
+    pub const ALL: [CartTitle; 3] = [CartTitle::Off, CartTitle::Below, CartTitle::Above];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            CartTitle::Off => "off",
+            CartTitle::Below => "below",
+            CartTitle::Above => "above",
+        }
+    }
+
+    pub fn parse(name: &str) -> Option<CartTitle> {
+        Self::ALL.into_iter().find(|c| c.name() == name)
+    }
+
+    pub fn step(self, right: bool) -> CartTitle {
+        step_in(&Self::ALL, self, right)
+    }
+}
+
+fn step_in<T: Copy + PartialEq>(choices: &[T], at: T, right: bool) -> T {
+    let n = choices.len();
+    let i = choices.iter().position(|&c| c == at).unwrap_or(0);
+    choices[if right { (i + 1) % n } else { (i + n - 1) % n }]
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -76,13 +158,7 @@ impl Shader {
     }
 
     pub fn step(self, choices: &[Shader], right: bool) -> Shader {
-        let n = choices.len();
-        let at = choices.iter().position(|&s| s == self).unwrap_or(0);
-        choices[if right {
-            (at + 1) % n
-        } else {
-            (at + n - 1) % n
-        }]
+        step_in(choices, self, right)
     }
 }
 
@@ -102,7 +178,7 @@ impl Default for SlotState {
             rumble: true,
             ff_speed: FF_SPEED_DEFAULT,
             ff_sound: false,
-            colour_correction: false,
+            colour_correction: ColourCorrection::Off,
             shader_gba: Shader::Grid,
             shader_gb: Shader::Simpletex,
             eject_save: true,
@@ -110,6 +186,8 @@ impl Default for SlotState {
             rewind: true,
             gb_palettes: false,
             gb_palette: GbPalette::DEFAULT,
+            clock_24h: true,
+            cart_title: CartTitle::Off,
         }
     }
 }
@@ -128,7 +206,7 @@ pub fn read_slot_state(root: &Path) -> SlotState {
 
 pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     let text = format!(
-        "cart={}\ncart_platform={}\nbrightness={}\nblue_light={}\nvolume={}\nvolume_hp={}\nmuted={}\nmuted_hp={}\nclock_set={}\nutc_offset_min={}\nrumble={}\nff_speed={}\nff_sound={}\ncolour_correction={}\nshader_gba={}\nshader_gb={}\neject_save={}\nturbo={}\nrewind={}\ngb_palettes={}\ngb_palette={}\n",
+        "cart={}\ncart_platform={}\nbrightness={}\nblue_light={}\nvolume={}\nvolume_hp={}\nmuted={}\nmuted_hp={}\nclock_set={}\nutc_offset_min={}\nrumble={}\nff_speed={}\nff_sound={}\ncolour_correction={}\nshader_gba={}\nshader_gb={}\neject_save={}\nturbo={}\nrewind={}\ngb_palettes={}\ngb_palette={}\nclock_24h={}\ncart_title={}\n",
         s.cart.as_deref().unwrap_or(""),
         s.cart_platform.map_or(String::new(), platform_key),
         s.brightness,
@@ -142,14 +220,16 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
         s.rumble as u8,
         s.ff_speed,
         s.ff_sound as u8,
-        s.colour_correction as u8,
+        s.colour_correction.name(),
         s.shader_gba.name(),
         s.shader_gb.name(),
         s.eject_save as u8,
         s.turbo as u8,
         s.rewind as u8,
         s.gb_palettes as u8,
-        s.gb_palette.core_name()
+        s.gb_palette.core_name(),
+        s.clock_24h as u8,
+        s.cart_title.name()
     );
     atomic_write(&state_path(root), text.as_bytes())
 }
@@ -176,6 +256,8 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut rewind = None;
     let mut gb_palettes = None;
     let mut gb_palette = None;
+    let mut clock_24h = None;
+    let mut cart_title = None;
     for line in text.lines().filter(|l| !l.is_empty()) {
         let Some((key, value)) = line.split_once('=') else {
             continue;
@@ -194,13 +276,15 @@ fn parse(text: &str) -> Option<SlotState> {
             "rumble" => rumble = flag(value),
             "ff_speed" => ff_speed = ff_speed_value(value),
             "ff_sound" => ff_sound = flag(value),
-            "colour_correction" => colour_correction = flag(value),
+            "colour_correction" => colour_correction = ColourCorrection::parse(value),
             "shader_gba" => shader_gba = Shader::parse(value).filter(|s| Shader::GBA.contains(s)),
             "eject_save" => eject_save = flag(value),
             "turbo" => turbo = flag(value),
             "rewind" => rewind = flag(value),
             "gb_palettes" => gb_palettes = flag(value),
             "gb_palette" => gb_palette = GbPalette::parse(value),
+            "clock_24h" => clock_24h = flag(value),
+            "cart_title" => cart_title = CartTitle::parse(value),
             "shader_gb" => shader_gb = Shader::parse(value).filter(|s| Shader::GB.contains(s)),
             _ => {}
         }
@@ -229,6 +313,8 @@ fn parse(text: &str) -> Option<SlotState> {
         rewind: rewind.unwrap_or(fallback.rewind),
         gb_palettes: gb_palettes.unwrap_or(fallback.gb_palettes),
         gb_palette: gb_palette.unwrap_or(fallback.gb_palette),
+        clock_24h: clock_24h.unwrap_or(fallback.clock_24h),
+        cart_title: cart_title.unwrap_or(fallback.cart_title),
     })
 }
 

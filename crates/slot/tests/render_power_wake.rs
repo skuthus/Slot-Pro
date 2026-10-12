@@ -6,12 +6,11 @@ use std::collections::VecDeque;
 use std::path::Path;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
 
 use common::{clocked, tmp_root_with_carts};
 use slot::frontend::Frontend;
 use slot_gfx::{Compositor, HeadlessSurface, OUT_H, OUT_W};
-use slot_input::{Btn, InputSource, Millis, RawEvent, POWER_HOLD_MS};
+use slot_input::{Btn, InputSource, Millis, RawEvent};
 use slot_power::{Battery, Charge, LedState, Platform, SimPlatform};
 
 struct Script(VecDeque<Vec<RawEvent>>);
@@ -116,7 +115,7 @@ fn tap(f: &mut Frontend, input: &mut Script, btn: Btn) {
 }
 
 #[test]
-fn power_on_a_dozing_device_brings_the_screen_back_before_the_menu() {
+fn power_on_a_dozing_device_brings_the_screen_back_and_a_later_tap_raises_the_menu() {
     let Ok(surface) = HeadlessSurface::new() else {
         return;
     };
@@ -143,6 +142,7 @@ fn power_on_a_dozing_device_brings_the_screen_back_before_the_menu() {
     );
 
     tap(&mut f, &mut input, Btn::Power);
+    tap(&mut f, &mut input, Btn::A);
     let dozing = composed(&mut f, &mut c, "doze");
     assert_eq!(
         backlight.load(Ordering::Relaxed),
@@ -164,11 +164,15 @@ fn power_on_a_dozing_device_brings_the_screen_back_before_the_menu() {
         "the screen is still the doze's own black"
     );
 
-    let until = Instant::now() + Duration::from_millis(POWER_HOLD_MS + 200);
-    while Instant::now() < until {
-        f.advance(&mut input);
-        std::thread::sleep(Duration::from_millis(8));
-    }
+    input.0.push_back(vec![RawEvent::Up(Btn::Power)]);
+    f.advance(&mut input);
+    let released = composed(&mut f, &mut c, "released");
+    assert_eq!(
+        released, woken,
+        "letting go of the press that woke the panel raised something"
+    );
+
+    tap(&mut f, &mut input, Btn::Power);
     let menu = composed(&mut f, &mut c, "menu");
     assert_eq!(
         backlight.load(Ordering::Relaxed),
@@ -181,6 +185,6 @@ fn power_on_a_dozing_device_brings_the_screen_back_before_the_menu() {
     );
     assert_ne!(
         menu, woken,
-        "the hold never raised the menu over what was underneath it"
+        "the tap never raised the menu over what was underneath it"
     );
 }

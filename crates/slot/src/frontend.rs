@@ -5,7 +5,7 @@ use slot_gfx::{Compositor, Draw, ScreenEffect, TexId, OUT_H, OUT_W};
 const PAPER: &[u8] = include_bytes!("../assets/paper.png");
 use slot_input::{InputSource, Millis};
 use slot_power::{Platform, Power};
-use slot_store::format_stamp;
+use slot_store::{format_stamp, CartTitle};
 use slot_ui::{
     arrows_hint_face, badge_face, bezel_face, cart_shadow, chip_face, chip_shadow_face,
     date_time_text, gb_cart_shadow, hhmm, hint_face, icon_face, menu_face, photo_face,
@@ -89,6 +89,8 @@ struct Clocks {
     battery_tex: Option<TexId>,
     platform: String,
     platform_tex: Option<TexId>,
+    title: String,
+    title_tex: Option<TexId>,
 }
 
 #[derive(Default)]
@@ -579,12 +581,12 @@ impl UiFaces {
                     badge_face(badge, HUD_ICON_PX, ink)
                 })
                 .collect(),
-            shutdown: PowerChoice::ALL
+            shutdown: PowerChoice::SHUTDOWNS
                 .iter()
                 .map(|c| {
                     menu_face(match c {
                         PowerChoice::Restart => "Restarting",
-                        PowerChoice::PowerOff => "Powering Down",
+                        _ => "Powering Down",
                     })
                 })
                 .collect(),
@@ -689,13 +691,37 @@ fn sync_clock(app: &mut App, compositor: &mut Compositor, clocks: &mut Clocks) {
             app.set_clock_faces(line, hint);
         }
     }
-    let shown = hhmm(app.wall_secs());
+    let shown = hhmm(app.wall_secs(), app.clock_24h());
     if shown != clocks.shown {
         let face = word_face(&shown);
         clocks.shown = shown;
         let w = face.w;
         let id = upload(compositor, &mut clocks.shelf, face);
         app.set_shelf_clock_face(id, w);
+    }
+    slot_ui::set_title_above(app.cart_title() == CartTitle::Above);
+    let title_shown = match app.cart_title() {
+        CartTitle::Off => String::new(),
+        _ => app
+            .selected_stem()
+            .map(slot_ui::clean_label)
+            .unwrap_or_default(),
+    };
+    if title_shown != clocks.title {
+        clocks.title = title_shown;
+        if clocks.title.is_empty() {
+            app.set_cart_title_face(None);
+        } else {
+            let face = slot_ui::cart_title_face(&clocks.title);
+            let id = upload_rgba(
+                compositor,
+                &mut clocks.title_tex,
+                face.w,
+                face.h,
+                &face.rgba,
+            );
+            app.set_cart_title_face(Some((id, face.w, face.h)));
+        }
     }
     let platform_shown = app.slot_text().unwrap_or_default();
     if platform_shown != clocks.platform {
@@ -728,7 +754,7 @@ fn sync_quick_clock(app: &mut App, compositor: &mut Compositor, state: &mut Quic
     if app.quick_menu().is_none() {
         return;
     }
-    let text = date_time_text(app.wall_secs());
+    let text = date_time_text(app.wall_secs(), app.clock_24h());
     if text == state.shown {
         return;
     }

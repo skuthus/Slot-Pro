@@ -20,10 +20,12 @@ pub enum QuickRow {
     Turbo,
     Rewind,
     GbPalettes,
+    CartTitle,
+    ClockFormat,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 14] = [
+    pub const ALL: [QuickRow; 16] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -38,6 +40,8 @@ impl QuickRow {
         QuickRow::Turbo,
         QuickRow::Rewind,
         QuickRow::GbPalettes,
+        QuickRow::CartTitle,
+        QuickRow::ClockFormat,
     ];
 
     pub const MAIN: [QuickRow; 4] = [
@@ -47,11 +51,13 @@ impl QuickRow {
         QuickRow::About,
     ];
 
-    pub const SCREEN: [QuickRow; 4] = [
+    pub const SCREEN: [QuickRow; 6] = [
         QuickRow::GbaShader,
         QuickRow::GbShader,
         QuickRow::ColourCorrection,
         QuickRow::GbPalettes,
+        QuickRow::CartTitle,
+        QuickRow::ClockFormat,
     ];
 
     pub const GAME: [QuickRow; 6] = [
@@ -72,7 +78,9 @@ impl QuickRow {
             QuickRow::GbaShader
             | QuickRow::GbShader
             | QuickRow::ColourCorrection
-            | QuickRow::GbPalettes => &QuickRow::SCREEN,
+            | QuickRow::GbPalettes
+            | QuickRow::CartTitle
+            | QuickRow::ClockFormat => &QuickRow::SCREEN,
             QuickRow::FastForward
             | QuickRow::FastForwardSound
             | QuickRow::Rewind
@@ -119,6 +127,8 @@ impl QuickRow {
             QuickRow::Turbo => "Turbo Buttons",
             QuickRow::Rewind => "Rewind",
             QuickRow::GbPalettes => "GB Palettes",
+            QuickRow::CartTitle => "Game Title",
+            QuickRow::ClockFormat => "Clock",
         }
     }
 
@@ -152,10 +162,17 @@ pub enum QuickValue {
     Grid,
     Dot,
     Simpletex,
+    GbaOnly,
+    GbAndGbc,
+    All,
+    Below,
+    Above,
+    Hours12,
+    Hours24,
 }
 
 impl QuickValue {
-    pub const ALL: [QuickValue; 10] = [
+    pub const ALL: [QuickValue; 17] = [
         QuickValue::Speed2,
         QuickValue::Speed3,
         QuickValue::Speed4,
@@ -166,6 +183,13 @@ impl QuickValue {
         QuickValue::Grid,
         QuickValue::Dot,
         QuickValue::Simpletex,
+        QuickValue::GbaOnly,
+        QuickValue::GbAndGbc,
+        QuickValue::All,
+        QuickValue::Below,
+        QuickValue::Above,
+        QuickValue::Hours12,
+        QuickValue::Hours24,
     ];
 
     pub fn index(self) -> usize {
@@ -184,6 +208,13 @@ impl QuickValue {
             QuickValue::Grid => "Grid",
             QuickValue::Dot => "Dot",
             QuickValue::Simpletex => "Simpletex",
+            QuickValue::GbaOnly => "GBA Only",
+            QuickValue::GbAndGbc => "GB / GBC",
+            QuickValue::All => "All",
+            QuickValue::Below => "Below",
+            QuickValue::Above => "Above",
+            QuickValue::Hours12 => "12 Hour",
+            QuickValue::Hours24 => "24 Hour",
         }
     }
 

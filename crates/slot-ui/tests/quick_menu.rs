@@ -87,7 +87,9 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "GBA Shader",
             "GB / GBC Shader",
             "Color Correction",
-            "GB Palettes"
+            "GB Palettes",
+            "Game Title",
+            "Clock"
         ]
     );
     assert_eq!(
@@ -136,7 +138,14 @@ fn the_values_read_as_the_menu_prints_them() {
             "LCD3x",
             "Grid",
             "Dot",
-            "Simpletex"
+            "Simpletex",
+            "GBA Only",
+            "GB / GBC",
+            "All",
+            "Below",
+            "Above",
+            "12 Hour",
+            "24 Hour"
         ]
     );
     assert_eq!(QuickValue::flag(true), QuickValue::On);
@@ -145,9 +154,12 @@ fn the_values_read_as_the_menu_prints_them() {
 
 #[test]
 fn the_date_and_time_read_as_a_month_a_day_and_the_carousels_24_hour_clock() {
-    let at = |stamp: &str| date_time_text(parse_stamp(stamp).expect("a stamp"));
-    assert_eq!(at("2026-09-15_16-35-00"), "SEP 15 16:35");
-    assert_eq!(at("2027-01-05_04-07-59"), "JAN 5 04:07");
+    let at = |stamp: &str, h24| date_time_text(parse_stamp(stamp).expect("a stamp"), h24);
+    assert_eq!(at("2026-09-15_16-35-00", true), "SEP 15 16:35");
+    assert_eq!(at("2027-01-05_04-07-59", true), "JAN 5 04:07");
+    assert_eq!(at("2026-09-15_16-35-00", false), "SEP 15 4:35 PM");
+    assert_eq!(at("2027-01-05_00-07-59", false), "JAN 5 12:07 AM");
+    assert_eq!(at("2027-01-05_12-00-00", false), "JAN 5 12:00 PM");
 }
 
 #[test]

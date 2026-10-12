@@ -15,7 +15,7 @@ use slot_input::{Action, Btn, Millis, RawEvent};
 use slot_power::{Battery, Charge};
 use slot_retro::{LinkChannel, LoopbackLink, NETPACKET_RELIABLE};
 use slot_store::{write_slot_state, Core, Platform, SlotState, StateRing};
-use slot_ui::{LinkBadge, Toast};
+use slot_ui::{LinkBadge, PowerChoice, Toast};
 
 #[test]
 fn a_packet_survives_the_wire_intact() {
@@ -299,7 +299,7 @@ fn a_live_session_refuses_to_open_the_power_menu() {
     let mut a = app_playing_in(d.path(), "Emerald");
     a.begin_link(0);
 
-    a.apply(Action::PowerHold);
+    a.apply(Action::PowerTap);
     assert!(
         a.power_menu().is_none(),
         "the power menu pauses the core, which a session forbids"
@@ -345,21 +345,36 @@ fn a_power_press_ends_a_live_session_instead_of_flushing_only() {
 }
 
 #[test]
-fn a_power_tap_ends_a_live_session_and_dozes_in_the_same_tap() {
+fn a_power_tap_after_the_press_that_ended_a_live_session_opens_the_menu() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mut a = app_playing_in(d.path(), "Emerald");
     a.begin_link(0);
     assert!(a.link_active());
 
+    a.apply(Action::PowerPress);
+    assert!(!a.link_active(), "a power press must end a live session");
     a.apply(Action::PowerTap);
-    assert!(!a.link_active(), "a power tap must end a live session");
-    assert!(
-        matches!(a.phase(), Phase::Doze { .. }),
-        "ending the session must not leave the device awake behind the tap that closed it"
+    assert_eq!(
+        a.power_menu(),
+        Some(PowerChoice::Sleep.index()),
+        "with the session gone the tap that ended it opens the menu"
     );
-
-    a.apply(Action::PowerTap);
     assert!(matches!(a.phase(), Phase::Playing { .. }));
+}
+
+#[test]
+fn a_power_hold_during_a_live_session_ends_it_and_powers_off() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let mut a = app_playing_in(d.path(), "Emerald");
+    a.begin_link(0);
+
+    a.apply(Action::PowerPress);
+    a.apply(Action::PowerHold);
+    assert!(!a.link_active());
+    assert!(
+        a.powering_off(),
+        "the hold powers off after the press ended the link"
+    );
 }
 
 #[test]

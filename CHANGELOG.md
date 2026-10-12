@@ -1,5 +1,12 @@
 # Changelog
 
+## Slot Pro (unreleased)
+
+- Tap power for Sleep, Restart or Power Off. Hold power to save and shut down safely, from anywhere. Closing the lid still sleeps.
+- Color Correction has four modes: Off, GBA Only, GB / GBC and All. SELECT + Y in game steps through them.
+- The carousel can show the selected game's title below or above its cart (Screen → Game Title).
+- The clock can show 12 or 24 hour time (Screen → Clock).
+
 ## [1.6.0](https://github.com/BrandonKowalski/slot/releases/tag/v1.6.0)
 
 - Runs on the RG28XX: its panel is mounted portrait, so slot turns the picture onto it. (#35)

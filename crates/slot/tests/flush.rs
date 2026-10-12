@@ -10,6 +10,7 @@ use slot::persist::Snapshot;
 use slot_input::{Action, Btn};
 use slot_power::{Battery, Charge, LedState};
 use slot_store::{read_slot_state, Core, Platform, StateRing};
+use slot_ui::PowerChoice;
 
 fn unknown(percent: u8) -> Battery {
     Battery {
@@ -66,10 +67,13 @@ fn battery_critical_flushes_and_powers_off() {
 }
 
 #[test]
-fn a_power_tap_dozes_and_a_second_one_wakes() {
+fn a_power_tap_opens_the_menu_and_its_sleep_row_dozes_until_a_second_tap_wakes() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mut a = app_playing_in(d.path(), "Emerald");
     a.apply(Action::PowerTap);
+    assert_eq!(a.power_menu(), Some(PowerChoice::Sleep.index()));
+    assert!(matches!(a.phase(), Phase::Playing { .. }));
+    a.apply(Action::GbaDown(Btn::A));
     assert!(matches!(a.phase(), Phase::Doze { .. }));
     a.apply(Action::PowerTap);
     assert!(matches!(a.phase(), Phase::Playing { .. }));
@@ -80,10 +84,10 @@ fn opening_the_menu_flushes_and_the_choice_powers_off() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mut a = app_playing_in(d.path(), "Emerald");
 
-    a.apply(Action::PowerHold);
+    a.apply(Action::PowerTap);
     assert!(
         !a.powering_off(),
-        "the hold asks the question, it does not answer it"
+        "the tap asks the question, it does not answer it"
     );
     assert!(
         StateRing::new(d.path(), Platform::Gba, Core::Mgba, "Emerald")
@@ -93,9 +97,11 @@ fn opening_the_menu_flushes_and_the_choice_powers_off() {
         "durable before the user has read a single row"
     );
 
-    a.apply(Action::GbaDown(Btn::Down));
+    for _ in 0..PowerChoice::PowerOff.index() {
+        a.apply(Action::GbaDown(Btn::Down));
+    }
     a.apply(Action::GbaDown(Btn::A));
-    assert!(a.powering_off(), "Power Off is the second row");
+    assert!(a.powering_off(), "Power Off is the last row");
     assert_eq!(
         read_slot_state(d.path()).cart,
         Some("Emerald".into()),
@@ -104,20 +110,52 @@ fn opening_the_menu_flushes_and_the_choice_powers_off() {
 }
 
 #[test]
+fn a_hold_flushes_resume_and_powers_off_without_a_menu() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let mut a = app_playing_in(d.path(), "Emerald");
+    a.apply(Action::PowerHold);
+    assert!(a.powering_off(), "the hold is the safe shutdown");
+    assert_eq!(a.power_menu(), None);
+    assert!(
+        StateRing::new(d.path(), Platform::Gba, Core::Mgba, "Emerald")
+            .read_resume()
+            .unwrap()
+            .is_some(),
+        "durable before the machine stops"
+    );
+    assert_eq!(
+        read_slot_state(d.path()).cart,
+        Some("Emerald".into()),
+        "power off is not an eject"
+    );
+}
+
+#[test]
+fn a_hold_with_the_menu_open_closes_it_and_powers_off() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let mut a = app_playing_in(d.path(), "Emerald");
+    a.apply(Action::PowerTap);
+    assert!(a.power_menu().is_some());
+    a.apply(Action::PowerHold);
+    assert_eq!(a.power_menu(), None);
+    assert!(a.powering_off() && !a.restarting());
+}
+
+#[test]
 fn a_release_after_the_hold_does_nothing_on_its_own() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mut a = app_playing_in(d.path(), "Emerald");
     a.apply(Action::PowerHold);
     a.apply(Action::PowerOff);
-    assert!(!a.powering_off());
-    assert_eq!(a.power_menu(), Some(0), "and leaves the menu up");
+    assert!(a.powering_off(), "the release does not undo the shutdown");
+    assert_eq!(a.power_menu(), None, "and does not raise a menu");
 }
 
 #[test]
 fn an_idle_doze_times_out_into_a_power_off() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mut a = app_playing_in(d.path(), "Emerald");
-    a.apply(Action::PowerTap);
+    a.apply(Action::LidClose);
     assert!(matches!(a.phase(), Phase::Doze { .. }));
     a.on_doze_timeout();
     assert!(a.powering_off(), "the timeout powers off");
@@ -126,7 +164,7 @@ fn an_idle_doze_times_out_into_a_power_off() {
             .read_resume()
             .unwrap()
             .is_some(),
-        "and the tap that started the doze already made it durable"
+        "and the lid close that started the doze already made it durable"
     );
 }
 

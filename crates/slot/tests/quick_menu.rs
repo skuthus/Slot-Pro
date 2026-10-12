@@ -6,7 +6,9 @@ use common::{
 };
 use slot::app::{App, Phase};
 use slot_input::{Action, Btn};
-use slot_store::{read_slot_state, write_slot_state, Shader, SlotState};
+use slot_store::{
+    read_slot_state, write_slot_state, CartTitle, ColourCorrection, Shader, SlotState,
+};
 use slot_ui::{
     edge, Draw, Icon, QuickMenuFaces, QuickRow, QuickValue, TexId, MENU_PAD, OUT_W, QUICK_EDGE,
     QUICK_PITCH, QUICK_TOP,
@@ -180,34 +182,35 @@ fn rumble_and_fast_forward_sound_flip_on_either_arrow_and_save() {
 }
 
 #[test]
-fn colour_correction_flips_on_either_arrow_and_saves() {
+fn colour_correction_steps_through_its_modes_on_either_arrow_and_saves() {
     let (d, mut a, _) = on_carousel();
     open_at(&mut a, QuickRow::ColourCorrection);
-    assert!(
-        !a.colour_correction(),
+    assert_eq!(
+        a.colour_mode(),
+        ColourCorrection::Off,
         "the row did not open on the default, which is off"
     );
     assert_eq!(
         a.quick_value(QuickRow::ColourCorrection),
         Some(QuickValue::Off)
     );
-    for (btn, want) in [
-        (Btn::Right, true),
-        (Btn::Left, false),
-        (Btn::Left, true),
-        (Btn::Right, false),
+    use ColourCorrection::*;
+    for (btn, want, value) in [
+        (Btn::Right, GbaOnly, QuickValue::GbaOnly),
+        (Btn::Right, GbAndGbc, QuickValue::GbAndGbc),
+        (Btn::Right, All, QuickValue::All),
+        (Btn::Right, Off, QuickValue::Off),
+        (Btn::Left, All, QuickValue::All),
+        (Btn::Left, GbAndGbc, QuickValue::GbAndGbc),
     ] {
         press(&mut a, btn);
-        assert_eq!(a.colour_correction(), want, "{btn:?}");
+        assert_eq!(a.colour_mode(), want, "{btn:?}");
         assert_eq!(
             read_slot_state(d.path()).colour_correction,
             want,
             "{btn:?} never reached the card"
         );
-        assert_eq!(
-            a.quick_value(QuickRow::ColourCorrection),
-            Some(QuickValue::flag(want))
-        );
+        assert_eq!(a.quick_value(QuickRow::ColourCorrection), Some(value));
     }
 }
 
@@ -245,6 +248,8 @@ fn screen_opens_a_page_of_its_own_and_b_comes_back_to_it() {
         QuickRow::GbShader,
         QuickRow::ColourCorrection,
         QuickRow::GbPalettes,
+        QuickRow::CartTitle,
+        QuickRow::ClockFormat,
         QuickRow::GbaShader,
     ] {
         press(&mut a, Btn::Down);
@@ -298,7 +303,11 @@ fn colour_correction_leaves_the_settings_around_it_alone() {
     open_at(&mut a, QuickRow::ColourCorrection);
     press(&mut a, Btn::Right);
     let s = read_slot_state(d.path());
-    assert!(s.colour_correction, "the row never took");
+    assert_eq!(
+        s.colour_correction,
+        ColourCorrection::GbaOnly,
+        "the row never took"
+    );
     assert_eq!(
         (s.ff_speed, s.ff_sound, s.rumble),
         (
@@ -624,4 +633,49 @@ fn gb_palettes_flips_on_either_arrow_and_saves() {
             Some(QuickValue::flag(want))
         );
     }
+}
+
+#[test]
+fn the_title_row_steps_off_below_above_and_saves() {
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::CartTitle);
+    assert_eq!(a.quick_value(QuickRow::CartTitle), Some(QuickValue::Off));
+    for (btn, want, value) in [
+        (Btn::Right, CartTitle::Below, QuickValue::Below),
+        (Btn::Right, CartTitle::Above, QuickValue::Above),
+        (Btn::Right, CartTitle::Off, QuickValue::Off),
+        (Btn::Left, CartTitle::Above, QuickValue::Above),
+    ] {
+        press(&mut a, btn);
+        assert_eq!(a.cart_title(), want, "{btn:?}");
+        assert_eq!(
+            read_slot_state(d.path()).cart_title,
+            want,
+            "{btn:?} never reached the card"
+        );
+        assert_eq!(a.quick_value(QuickRow::CartTitle), Some(value));
+    }
+}
+
+#[test]
+fn the_clock_row_flips_between_24_and_12_hours_and_saves() {
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::ClockFormat);
+    assert_eq!(
+        a.quick_value(QuickRow::ClockFormat),
+        Some(QuickValue::Hours24)
+    );
+    for (btn, h24) in [(Btn::Right, false), (Btn::Left, true), (Btn::Left, false)] {
+        press(&mut a, btn);
+        assert_eq!(a.clock_24h(), h24, "{btn:?}");
+        assert_eq!(
+            read_slot_state(d.path()).clock_24h,
+            h24,
+            "{btn:?} never reached the card"
+        );
+    }
+    assert_eq!(
+        a.quick_value(QuickRow::ClockFormat),
+        Some(QuickValue::Hours12)
+    );
 }

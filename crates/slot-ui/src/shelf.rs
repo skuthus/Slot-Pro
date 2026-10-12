@@ -1,16 +1,49 @@
 use slot_gfx::{Draw, TexId, OUT_H, OUT_W};
 use slot_store::Cart;
-use std::sync::atomic::{AtomicU32, Ordering};
+use slot_store::CartTitle;
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 
 use crate::cart::{cart_box, gb_shell_of, label_colour, label_text, CART_H, CART_W};
-use crate::hud::Millis;
+use crate::hud::{Millis, HUD_INK};
+use crate::icon::{haloed, HALO_PX};
 use crate::silhouette::GbShell;
 use crate::slot_chrome::{draw_empty_slot, MOUTH_H};
+use crate::text;
+use crate::CartFace;
 
 const SIDE_SCALE: f32 = 0.78;
 const SIDE_ALPHA: f32 = 0.55;
 
 static SLACK: AtomicU32 = AtomicU32::new(0);
+static TITLE_ABOVE: AtomicBool = AtomicBool::new(false);
+
+const TITLE_W: u32 = 600;
+const TITLE_H: u32 = 28;
+const TITLE_PX: f32 = 20.0;
+const TITLE_MIN_PX: f32 = 14.0;
+const TITLE_GAP: f32 = 6.0;
+const TITLE_ROOM: f32 = TITLE_H as f32 + 2.0 * HALO_PX as f32 + 2.0 * TITLE_GAP;
+
+pub fn set_title_above(on: bool) {
+    TITLE_ABOVE.store(on, Ordering::Relaxed);
+}
+
+pub fn cart_title_face(text: &str) -> CartFace {
+    let Some(font) = text::label_font() else {
+        return CartFace {
+            rgba: Vec::new(),
+            w: 0,
+            h: 0,
+        };
+    };
+    let layout = text::fit(font, text, TITLE_W as f32, 1, TITLE_PX, TITLE_MIN_PX);
+    haloed(
+        &text::coverage(TITLE_W, TITLE_H, &layout),
+        TITLE_W,
+        TITLE_H,
+        HUD_INK,
+    )
+}
 
 pub fn set_shelf_slack(px: f32) {
     SLACK.store(px.max(0.0).to_bits(), Ordering::Relaxed);
@@ -30,7 +63,11 @@ pub fn rest_y(h: f32) -> f32 {
     } else {
         (OUT_H + CART_H) as f32 / 2.0 - h
     };
-    y - raise()
+    let y = y - raise();
+    if h > CART_H as f32 && TITLE_ABOVE.load(Ordering::Relaxed) {
+        return y.max(TITLE_ROOM);
+    }
+    y
 }
 
 pub fn foot_y(h: f32) -> f32 {
@@ -294,6 +331,38 @@ impl Shelf {
         let accel = -2.0 * OMEGA * self.vel - OMEGA * OMEGA * (self.scroll - self.scroll_target());
         self.vel += accel * dt;
         self.scroll += self.vel * dt;
+    }
+
+    pub fn draw_title(
+        &self,
+        face: (TexId, u32, u32),
+        place: CartTitle,
+        shake: f32,
+        out: &mut Vec<Draw>,
+    ) {
+        let Some(cart) = self.carts.get(self.index) else {
+            return;
+        };
+        let alpha = 1.0 - (self.scroll_target() - self.scroll).abs().min(1.0);
+        if alpha <= 0.0 {
+            return;
+        }
+        let (tex, w, h) = face;
+        let (_, ch) = cart_box(cart.platform);
+        let ch = ch as f32;
+        let y = match place {
+            CartTitle::Off => return,
+            CartTitle::Below => foot_y(ch) + TITLE_GAP,
+            CartTitle::Above => rest_y(ch) - TITLE_GAP - h as f32,
+        };
+        out.push(Draw::Tex {
+            x: ((OUT_W as f32 - w as f32) / 2.0 + shake).round(),
+            y: y.max(0.0).round(),
+            w: w as f32,
+            h: h as f32,
+            tex,
+            alpha,
+        });
     }
 
     pub fn draw(&self, shake: f32, out: &mut Vec<Draw>) {

@@ -107,7 +107,7 @@ fn power_off_leaves_the_led_off_rather_than_lit_through_shutdown() {
         led_code(LedState::Off),
         "the rig should start lit, or this test proves nothing"
     );
-    a.apply(Action::PowerHold);
+    a.apply(Action::PowerTap);
     assert_ne!(
         led.load(Ordering::Relaxed),
         led_code(LedState::Off),
@@ -123,6 +123,18 @@ fn power_off_leaves_the_led_off_rather_than_lit_through_shutdown() {
         led_code(LedState::Off),
         "the LED was still reporting a running state after power_off"
     );
+}
+
+#[test]
+fn a_power_hold_leaves_the_led_off_too() {
+    let d = tmp_root_with_carts(&["Emerald"]);
+    let (mut a, charge, percent, led, _writes) = app_playing_with_led(d.path(), "Emerald");
+    charge.store(1, Ordering::Relaxed);
+    percent.store(50, Ordering::Relaxed);
+    a.tick_ms(2_000);
+    assert_ne!(led.load(Ordering::Relaxed), led_code(LedState::Off));
+    a.apply(Action::PowerHold);
+    assert_eq!(led.load(Ordering::Relaxed), led_code(LedState::Off));
 }
 
 #[test]

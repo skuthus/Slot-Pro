@@ -30,25 +30,32 @@ const SET_CLOCK_KEY: &str = "A";
 const SET_CLOCK_LABEL: &str = "set the clock";
 
 pub fn clock_label(stamp: &str) -> String {
-    parse_stamp(stamp).map(hhmm).unwrap_or_default()
+    parse_stamp(stamp)
+        .map(|secs| hhmm(secs, true))
+        .unwrap_or_default()
 }
 
-pub fn hhmm(secs: i64) -> String {
+pub fn hhmm(secs: i64, h24: bool) -> String {
     let rem = secs.rem_euclid(DAY);
-    format!("{:02}:{:02}", rem / 3600, rem / 60 % 60)
+    let (hour, minute) = (rem / 3600, rem / 60 % 60);
+    if h24 {
+        return format!("{hour:02}:{minute:02}");
+    }
+    let half = if hour < 12 { "AM" } else { "PM" };
+    format!("{}:{minute:02} {half}", (hour + 11) % 12 + 1)
 }
 
 const MONTHS: [&str; 12] = [
     "JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEP", "OCT", "NOV", "DEC",
 ];
 
-pub fn date_time_text(secs: i64) -> String {
+pub fn date_time_text(secs: i64, h24: bool) -> String {
     let (_, month, day) = civil_from_days(secs.div_euclid(DAY));
     let name = MONTHS
         .get((month - 1) as usize)
         .copied()
         .unwrap_or_default();
-    format!("{name} {day} {}", hhmm(secs))
+    format!("{name} {day} {}", hhmm(secs, h24))
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]

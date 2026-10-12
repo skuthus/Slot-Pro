@@ -120,7 +120,7 @@ fn the_cards_setting_reaches_the_core_through_the_session() {
     use slot::app::Phase;
     use slot::session::Session;
     use slot_input::{Btn, RawEvent};
-    use slot_store::{write_slot_state, SlotState};
+    use slot_store::{write_slot_state, ColourCorrection, SlotState};
     use std::time::{Duration, Instant};
 
     let Some(dylib) = vendored_core() else {
@@ -143,7 +143,11 @@ fn the_cards_setting_reaches_the_core_through_the_session() {
         std::fs::copy(&dylib, d.path().join("System/mgba_libretro.dylib")).expect("plant a core");
         let state = SlotState {
             clock_set: true,
-            colour_correction: colour,
+            colour_correction: if colour {
+                ColourCorrection::All
+            } else {
+                ColourCorrection::Off
+            },
             ..SlotState::default()
         };
         write_slot_state(d.path(), &state).expect("write slot.state");

@@ -2,8 +2,8 @@ mod common;
 
 use common::tmp_root;
 use slot_store::{
-    atomic_write, read_slot_state, write_slot_state, GbPalette, Platform, Shader, SlotState,
-    FF_SPEEDS, FF_SPEED_DEFAULT,
+    atomic_write, read_slot_state, write_slot_state, CartTitle, ColourCorrection, GbPalette,
+    Platform, Shader, SlotState, FF_SPEEDS, FF_SPEED_DEFAULT,
 };
 use tempfile::tempdir;
 
@@ -164,7 +164,17 @@ fn a_first_boot_rumbles_and_fast_forwards_silently_at_the_default() {
     assert!(s.rumble, "boots with the motor off");
     assert_eq!(s.ff_speed, FF_SPEED_DEFAULT);
     assert!(!s.ff_sound, "boots with fast forward audible");
-    assert!(!s.colour_correction, "boots with the picture tinted");
+    assert_eq!(
+        s.colour_correction,
+        ColourCorrection::Off,
+        "boots with the picture tinted"
+    );
+    assert!(s.clock_24h, "boots with a 12 hour clock");
+    assert_eq!(
+        s.cart_title,
+        CartTitle::Off,
+        "boots with titles under the carts"
+    );
     assert_eq!(s.shader_gba, Shader::Grid);
     assert_eq!(s.shader_gb, Shader::Simpletex);
 }
@@ -193,7 +203,7 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             rumble: true,
             ff_speed: FF_SPEED_DEFAULT,
             ff_sound: false,
-            colour_correction: false,
+            colour_correction: ColourCorrection::Off,
             shader_gba: Shader::Grid,
             shader_gb: Shader::Simpletex,
             eject_save: true,
@@ -201,6 +211,8 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             rewind: true,
             gb_palettes: false,
             gb_palette: GbPalette::DEFAULT,
+            clock_24h: true,
+            cart_title: CartTitle::Off,
         }
     );
 }
@@ -213,7 +225,7 @@ fn the_quick_menu_settings_round_trip_as_their_own_lines() {
         rumble: false,
         ff_speed: 2,
         ff_sound: true,
-        colour_correction: true,
+        colour_correction: ColourCorrection::GbAndGbc,
         shader_gba: Shader::Dot,
         shader_gb: Shader::Off,
         eject_save: false,
@@ -221,6 +233,8 @@ fn the_quick_menu_settings_round_trip_as_their_own_lines() {
         rewind: false,
         gb_palettes: true,
         gb_palette: GbPalette::parse("GBC Dark Green →A").unwrap(),
+        clock_24h: false,
+        cart_title: CartTitle::Above,
         ..SlotState::default()
     };
     write_slot_state(d.path(), &s).unwrap();
@@ -230,7 +244,7 @@ fn the_quick_menu_settings_round_trip_as_their_own_lines() {
         "rumble=0",
         "ff_speed=2",
         "ff_sound=1",
-        "colour_correction=1",
+        "colour_correction=gb_gbc",
         "shader_gba=dot",
         "shader_gb=off",
         "eject_save=0",
@@ -238,6 +252,8 @@ fn the_quick_menu_settings_round_trip_as_their_own_lines() {
         "rewind=0",
         "gb_palettes=1",
         "gb_palette=GBC Dark Green →A",
+        "clock_24h=0",
+        "cart_title=above",
     ] {
         assert!(text.lines().any(|l| l == line), "no {line} in {text:?}");
     }
@@ -296,7 +312,7 @@ fn an_out_of_range_setting_falls_back_to_its_default() {
         let s = read_slot_state(d.path());
         assert_eq!(
             (s.rumble, s.ff_speed, s.ff_sound, s.colour_correction),
-            (true, FF_SPEED_DEFAULT, false, false),
+            (true, FF_SPEED_DEFAULT, false, ColourCorrection::Off),
             "accepted {bad:?}"
         );
         assert_eq!(
@@ -401,4 +417,43 @@ fn a_missing_or_unknown_palette_falls_back_to_dmg_green() {
         assert!(!s.gb_palettes, "{bad:?} turned palettes on");
         assert_eq!(s.gb_palette, GbPalette::DEFAULT, "{bad:?}");
     }
+}
+
+#[test]
+fn every_colour_correction_mode_round_trips_and_the_old_switch_still_reads() {
+    for mode in ColourCorrection::ALL {
+        let d = tmp_root();
+        let s = SlotState {
+            clock_set: true,
+            colour_correction: mode,
+            ..SlotState::default()
+        };
+        write_slot_state(d.path(), &s).unwrap();
+        assert_eq!(read_slot_state(d.path()), s, "{mode:?} did not come back");
+    }
+    let known = "cart=Emerald\nbrightness=3\nblue_light=1\nvolume=40\nmuted=0\nclock_set=1\nutc_offset_min=0\n";
+    for (old, want) in [
+        ("0", ColourCorrection::Off),
+        ("1", ColourCorrection::All),
+        ("on", ColourCorrection::All),
+    ] {
+        let d = tmp_root();
+        std::fs::write(
+            d.path().join("Config/slot.state"),
+            format!("{known}colour_correction={old}\n"),
+        )
+        .unwrap();
+        assert_eq!(read_slot_state(d.path()).colour_correction, want, "{old}");
+    }
+}
+
+#[test]
+fn each_colour_correction_mode_reaches_only_its_own_systems() {
+    use ColourCorrection::*;
+    let reach =
+        |m: ColourCorrection| [Platform::Gba, Platform::Gb, Platform::Gbc].map(|p| m.applies_to(p));
+    assert_eq!(reach(Off), [false, false, false]);
+    assert_eq!(reach(GbaOnly), [true, false, false]);
+    assert_eq!(reach(GbAndGbc), [false, true, true]);
+    assert_eq!(reach(All), [true, true, true]);
 }

@@ -17,6 +17,8 @@ pub enum Toast {
     BiosMismatch,
     ColourOn,
     ColourOff,
+    ColourGba,
+    ColourGbGbc,
     ShaderOff,
     ShaderLcd3x,
     ShaderGrid,
@@ -27,7 +29,7 @@ pub enum Toast {
 }
 
 impl Toast {
-    const FIXED: [Toast; 15] = [
+    const FIXED: [Toast; 17] = [
         Toast::StateSaved,
         Toast::StateLoaded,
         Toast::NeedsGpsp,
@@ -37,6 +39,8 @@ impl Toast {
         Toast::BiosMismatch,
         Toast::ColourOn,
         Toast::ColourOff,
+        Toast::ColourGba,
+        Toast::ColourGbGbc,
         Toast::ShaderOff,
         Toast::ShaderLcd3x,
         Toast::ShaderGrid,
@@ -79,8 +83,10 @@ impl Toast {
             Toast::LinkEnded => "Link ended",
             Toast::PeerEnded => "Link was ended",
             Toast::BiosMismatch => "BIOS does not match",
-            Toast::ColourOn => "Correction On",
-            Toast::ColourOff => "Correction Off",
+            Toast::ColourOn => "Correction: All",
+            Toast::ColourOff => "Correction: Off",
+            Toast::ColourGba => "Correction: GBA Only",
+            Toast::ColourGbGbc => "Correction: GB / GBC",
             Toast::ShaderOff => "Shader: Off",
             Toast::ShaderLcd3x => "Shader: LCD3x",
             Toast::ShaderGrid => "Shader: Grid",
