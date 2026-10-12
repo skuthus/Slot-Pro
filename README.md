@@ -4,98 +4,113 @@
 
 </div>
 
-<div align="center">
-
-<img src=".github/resources/banner.png" width="100%" alt="slot. A bespoke, Game Boy-centric frontend for the Anbernic RG SP.">
-
-<a href="LICENSE"><img src="https://img.shields.io/github/license/BrandonKowalski/slot?style=for-the-badge&labelColor=242429&color=4d4d57" height="36" alt="License"></a>
-<a href="https://github.com/BrandonKowalski/slot/stargazers"><img src="https://img.shields.io/github/stars/BrandonKowalski/slot?style=for-the-badge&labelColor=242429&color=4d4d57" height="36" alt="Stars"></a>
-<a href="https://github.com/BrandonKowalski/slot/releases"><img src="https://img.shields.io/github/downloads/BrandonKowalski/slot/total?style=for-the-badge&labelColor=242429&color=4d4d57" height="36" alt="Downloads"></a>
-<a href="https://slot-cfw.fyi"><img src="https://img.shields.io/badge/Guide-slot--cfw.fyi-4d4d57?style=for-the-badge&labelColor=242429" height="36" alt="Guide"></a>
-<a href="CHANGELOG.md"><img src="https://img.shields.io/badge/Changelog-4d4d57?style=for-the-badge&labelColor=242429" height="36" alt="Changelog"></a>
-
-</div>
-
----
-
-# Slot Pro
-
-Slot Pro is skuthus's fork of [slot](https://github.com/BrandonKowalski/slot) by
-[Brandon T. Kowalski](https://github.com/BrandonKowalski). Everything below this section is
-Brandon's original README, and the frontend, its design and most of its code are his work.
-Slot Pro is distributed under the same GNU GPL v3 as slot.
-
-Changes in this fork, detailed in the [changelog](CHANGELOG.md):
-
-- Tap power for Sleep, Restart or Power Off; hold it to save and shut down.
-- Three save slots per game with screenshots, opened with SELECT on the carousel or from a new
-  in-game menu (tap MENU).
-- Button remapping, for every game or per game, including X and Y.
-- Color correction modes, a game title on the carousel, a 12 / 24 hour clock and a GBC Frame
-  for Game Boy and Game Boy Color games.
-- Analog Mode, which plays like a real GBA: no save states, menus, rewind or resume.
-- Faster boots through a shader cache and reading a resumed game ahead.
-- A "slot pro." boot logo and About label. The "pro" is set in Cascadia Code Italic
-  (SIL Open Font License).
-
----
-
-# What is slot?
-
-A bespoke, Game Boy-centric frontend for the Anbernic RG SP.
-
-Has support for GBA, GBC, and GB titles only.
-
-> [!IMPORTANT]
-> ROMs must be unzipped. slot does not read `.zip` or `.7z` files.
-
-A full user guide can be found at [slot-cfw.fyi](https://slot-cfw.fyi).
-
-Release notes can be found in the [changelog](CHANGELOG.md).
-
----
-
-# What does it look like?
+Slot Pro is a Game Boy-centric frontend for the Anbernic RG SP and other H700 handhelds. It plays
+GBA, GB and GBC games from a cartridge carousel, and builds on [slot](https://github.com/BrandonKowalski/slot)
+by Brandon T. Kowalski.
 
 <p align="center">
-<img src=".github/resources/screenshots/carousel.gif" width="48%" alt="Scrolling the cart carousel across the Game Boy Advance, Game Boy and Game Boy Color shelves">
-<img src=".github/resources/screenshots/core-picker.gif" width="48%" alt="Flipping a cart to its circuit board to choose mGBA or gpSP">
+<img src=".github/resources/screenshots/carousel.gif" width="48%" alt="The cartridge carousel across the GBA, GB and GBC shelves">
+<img src=".github/resources/screenshots/core-picker.gif" width="48%" alt="Choosing between mGBA and gpSP for a GBA cart">
 </p>
 
-<p align="center">
-<img src=".github/resources/screenshots/link.gif" width="96.5%" alt="Two SPs racing in Mario Kart over the emulated link">
-</p>
+## Features
 
----
+- **Cartridge carousel** with label art, per-platform shelves, an optional game title, and a 12 or
+  24 hour clock.
+- **Three save slots per game**, each with a screenshot. Open them with SELECT on the carousel or
+  from the in-game menu.
+- **In-game menu** (tap MENU): resume, save and load states, shaders, controls and eject.
+- **Button remapping**, globally or per game, for A, B, L, R, SELECT, START, X and Y.
+- **Analog Mode**, which plays like a real GBA: no save states, menus, rewind, fast forward, turbo
+  or resume. Only the game's own save survives power off.
+- **GBC Frame**, which surrounds GB and GBC games with a Game Boy Color shell in six colors.
+- **Display options**: screen shaders, Game Boy palettes, and color correction for GBA only, GB and
+  GBC only, all games, or none.
+- **Power button**: tap for Sleep, Restart or Power Off. Hold to save and shut down.
+- **Fast boot**: compiled shaders are cached on the card, and a resumed game loads while the screen
+  starts.
+- **mGBA and gpSP cores**, rewind, fast forward, turbo, rumble, and link play between two devices.
 
-# Supported Devices
+## Supported devices
 
-| Device             | Supported                  | Since Version |
-|--------------------|----------------------------|---------------|
-| Anbernic RG SP     | Yes                        | Always        |
-| Anbernic RG34XX    | Yes                        | 1.4.0         |
-| Anbernic RG34XXSP  | Yes (No Stick Support Yet) | 1.4.0         |
-| Anbernic RG35XXSP  | Yes                        | 1.5.0         |
-| Anbernic 35XX Plus | Yes                        | 1.5.0         |
-| Anbernic RG28XX    | Yes                        | 1.6.0         |
+| Device             | Notes                     |
+|--------------------|---------------------------|
+| Anbernic RG SP     | Primary target            |
+| Anbernic RG34XX    |                           |
+| Anbernic RG34XXSP  | Analog stick not used     |
+| Anbernic RG35XXSP  | GBA SP bezel below the screen |
+| Anbernic RG35XX Plus |                         |
+| Anbernic RG28XX    | Portrait panel. If the picture is upside down, add `export SLOT_ROTATE=ccw` to `System/launch_frontend.sh` |
 
-RG28XX support was contributed by [GamerAnim](https://github.com/GamerAnim). Its panel is mounted
-portrait, so slot turns the picture onto it. If it comes out upside down, add `export SLOT_ROTATE=ccw`
-to `System/launch_frontend.sh`.
+## Installation
 
-If you have one of the untested devices, or have tried slot on a device not listed,
-please [open an issue on GitHub](https://github.com/BrandonKowalski/slot/issues) and let me know how it went.
+Slot Pro runs on [BaseOS](https://github.com/pvaibhav/BaseOS).
 
----
+1. Write the latest BaseOS image to an SD card, insert it into SD1, and power on once so it expands
+   its storage. Power off when it reports that no frontend was found.
+2. Copy the contents of a Slot Pro build onto the second card (SD2), formatted FAT32 or exFAT with an
+   MBR partition table. A single card in SD1 also works.
+3. Add unzipped ROMs to `Games/GBA`, `Games/GB` and `Games/GBC`. `.zip` and `.7z` files are not read.
+4. Optionally add label art as `Labels/<system>/<rom name>.png`, for example
+   `Labels/GBA/Metroid Fusion.png` for `Games/GBA/Metroid Fusion.gba`.
 
-# AI Disclosure
+To update, replace the `System/` folder on the card. Games, saves, states, labels and settings live
+outside it.
 
-The Rust frontend was put together by Claude Opus. I reviewed everything that was
-produced. All documentation is 100% free-range, meatbag prose.
+## Controls
 
-The project is extremely low stakes. I wanted a bespoke frontend for my RG SP and thought
-that something that evokes the feeling of using my GBA SP as a kid would be pretty neat.
+| Where       | Input                     | Action                                              |
+|-------------|---------------------------|-----------------------------------------------------|
+| Everywhere  | Tap POWER                 | Sleep, Restart or Power Off                         |
+|             | Hold POWER                | Save and shut down                                  |
+|             | SELECT + Up / Down        | Brightness                                          |
+|             | SELECT + Left / Right     | Blue light filter                                   |
+|             | VOL+ / VOL-               | Volume                                              |
+|             | SELECT + VOL+ / VOL-      | Mute                                                |
+| Carousel    | Left / Right, Up / Down   | Browse, or skip to the next letter                  |
+|             | L1 / R1                   | Switch platform                                     |
+|             | A / Hold A                | Play from where you left off / start fresh          |
+|             | SELECT                    | Save slots for the highlighted game                 |
+|             | START                     | Choose mGBA or gpSP (GBA)                           |
+|             | MENU                      | Settings                                            |
+| In game     | Tap MENU                  | In-game menu                                        |
+|             | Double tap MENU           | Load a save slot                                    |
+|             | Hold MENU                 | Eject to the carousel                               |
+|             | SELECT + R1 / L1          | Save to / load from the active slot                 |
+|             | X (after a save or load)  | Undo, within 30 seconds                             |
+|             | SELECT + B / A            | Previous / next shader                              |
+|             | SELECT + Y                | Next color correction mode                          |
+|             | SELECT + L2 / R2          | Previous / next Game Boy palette                    |
+|             | SELECT + MENU             | Link with another device                            |
+|             | Hold L2 / Hold R2         | Rewind / fast forward (double tap R2 to lock)       |
+|             | Hold X / Y                | Turbo A / B                                         |
+|             | L1 / R1 (GB and GBC)      | Fill the screen / original size                     |
 
-Use it, don't use it, I don't care.
+In Analog Mode, save, load, menu, rewind, fast forward and turbo inputs are disabled, and SELECT + L1 / R1
+reach the game.
 
-Figured I should share the end result of all the wasted water. ✌🏻
+## Building
+
+Requires Rust (the version is pinned in `rust-toolchain.toml`), [Task](https://taskfile.dev), CMake and,
+for device builds, Docker.
+
+```bash
+task test          # run the test suite
+task run           # run on the desktop against ./sdcard
+task dist:device   # build the SD card tree for H700 devices into ./dist-device
+```
+
+## Credits
+
+- [slot](https://github.com/BrandonKowalski/slot) by Brandon T. Kowalski, which Slot Pro is built on.
+- RG28XX support by [GamerAnim](https://github.com/GamerAnim).
+- Emulation by [mGBA](https://mgba.io) (MPL-2.0) and [gpSP](https://github.com/libretro/gpsp) (GPL-2.0).
+- [BaseOS](https://github.com/pvaibhav/BaseOS) by pvaibhav.
+- Open Sans, Nerd Fonts symbols, and Cascadia Code (SIL Open Font License) for the boot logo.
+
+Game Boy, Game Boy Color and Game Boy Advance are trademarks of Nintendo. Slot Pro is not affiliated
+with Nintendo or Anbernic.
+
+## License
+
+GPL-3.0-or-later. See [LICENSE](LICENSE).

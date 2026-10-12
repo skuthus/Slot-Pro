@@ -27,12 +27,12 @@ jobs:
           curl -fsSL https://taskfile.dev/install.sh | sh -s -- -b /usr/local/bin
 
       - name: Build the tree
-        run: task dist:device OUT="slot-${GITHUB_REF_NAME}"
+        run: task dist:device OUT="slot-pro-${GITHUB_REF_NAME}"
 
       - name: Check what is about to ship
         run: |
           set -eu
-          out="slot-${GITHUB_REF_NAME}"
+          out="slot-pro-${GITHUB_REF_NAME}"
           file "$out/System/slot" | grep -q aarch64
           file "$out/System/mgba_libretro.so" | grep -q aarch64
           file "$out/System/gpsp_libretro.so" | grep -q aarch64
@@ -53,7 +53,7 @@ jobs:
         id: package
         run: |
           set -eu
-          out="slot-${GITHUB_REF_NAME}"
+          out="slot-pro-${GITHUB_REF_NAME}"
           zip="$out-h700.zip"
           zip -qry "$zip" "$out"
           echo "zip=$zip" >> "$GITHUB_OUTPUT"
@@ -83,7 +83,7 @@ jobs:
         run: |
           set -eu
           cat > notes.md <<NOTES
-          Unzip and copy the contents of \`slot-${GITHUB_REF_NAME}/\` onto SD2.
+          Unzip and copy the contents of \`slot-pro-${GITHUB_REF_NAME}/\` onto SD2.
 
           Emulation by mGBA (MPL-2.0) and gpSP (GPL-2.0). Their licences, patches and gpSP's source are in \`System/licenses/\`.
           NOTES
