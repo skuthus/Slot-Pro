@@ -6,6 +6,11 @@
 - Color Correction has four modes: Off, GBA Only, GB / GBC and All. SELECT + Y in game steps through them.
 - The carousel can show the selected game's title below or above its cart (Screen → Game Title).
 - The clock can show 12 or 24 hour time (Screen → Clock).
+- Three save state slots per game, each with a screenshot and when it was saved. They replace the history of the last ten states.
+- SELECT on the carousel opens the highlighted game's slots, with the slot's screenshot where the cart sits. A starts the game from that slot.
+- Tap MENU in game to pause: Resume, Save State, Load State, Shader, Controls and Eject Game. Double-tap MENU still jumps straight to loading.
+- SELECT + R1 / L1 save to and load from the active slot, and say which slot.
+- Buttons can be remapped for every game (Controls on the carousel menu) or per game (Controls in the in-game menu). X and Y can send any button or keep their turbo.
 
 ## [1.6.0](https://github.com/BrandonKowalski/slot/releases/tag/v1.6.0)
 

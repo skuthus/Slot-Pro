@@ -6,6 +6,7 @@ pub mod gb;
 mod gb_palette;
 mod gba;
 pub mod ini;
+mod layout;
 mod platform;
 mod ring;
 mod scan;
@@ -21,8 +22,9 @@ pub use core::{
 };
 pub use gb_palette::GbPalette;
 pub use gba::{header_clean, header_code, header_title, header_title_code};
+pub use layout::{read_game_layout, write_game_layout, Layout, PadKey};
 pub use platform::Platform;
-pub use ring::{StateEntry, StateRing, RING_MAX};
+pub use ring::{StateEntry, StateRing, RING_MAX, SLOT_COUNT};
 pub use scan::{initial, is_hidden, listing, scan, sort_key, Cart, StoreError};
 pub use slot_state::{
     read_slot_state, write_slot_state, CartTitle, ColourCorrection, Shader, SlotState,

@@ -3,7 +3,7 @@ mod common;
 use common::tmp_root;
 use slot_store::{
     atomic_write, read_slot_state, write_slot_state, CartTitle, ColourCorrection, GbPalette,
-    Platform, Shader, SlotState, FF_SPEEDS, FF_SPEED_DEFAULT,
+    Layout, PadKey, Platform, Shader, SlotState, FF_SPEEDS, FF_SPEED_DEFAULT,
 };
 use tempfile::tempdir;
 
@@ -213,6 +213,7 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             gb_palette: GbPalette::DEFAULT,
             clock_24h: true,
             cart_title: CartTitle::Off,
+            layout: Layout::default(),
         }
     );
 }
@@ -235,6 +236,7 @@ fn the_quick_menu_settings_round_trip_as_their_own_lines() {
         gb_palette: GbPalette::parse("GBC Dark Green →A").unwrap(),
         clock_24h: false,
         cart_title: CartTitle::Above,
+        layout: swapped_ab(),
         ..SlotState::default()
     };
     write_slot_state(d.path(), &s).unwrap();
@@ -254,6 +256,7 @@ fn the_quick_menu_settings_round_trip_as_their_own_lines() {
         "gb_palette=GBC Dark Green →A",
         "clock_24h=0",
         "cart_title=above",
+        "layout=b,a,l,r,select,start,x,y",
     ] {
         assert!(text.lines().any(|l| l == line), "no {line} in {text:?}");
     }
@@ -456,4 +459,49 @@ fn each_colour_correction_mode_reaches_only_its_own_systems() {
     assert_eq!(reach(GbaOnly), [true, false, false]);
     assert_eq!(reach(GbAndGbc), [false, true, true]);
     assert_eq!(reach(All), [true, true, true]);
+}
+
+fn swapped_ab() -> Layout {
+    let mut l = Layout::default();
+    l.set(PadKey::A, PadKey::B);
+    l.set(PadKey::B, PadKey::A);
+    l
+}
+
+#[test]
+fn a_first_boot_sends_every_button_to_itself() {
+    assert_eq!(SlotState::default().layout, Layout::default());
+}
+
+#[test]
+fn a_remapped_layout_survives_a_restart() {
+    let d = tmp_root();
+    let s = SlotState {
+        clock_set: true,
+        layout: swapped_ab(),
+        ..SlotState::default()
+    };
+    write_slot_state(d.path(), &s).unwrap();
+    assert_eq!(read_slot_state(d.path()).layout, swapped_ab());
+}
+
+#[test]
+fn a_garbled_layout_line_falls_back_to_the_default_and_keeps_the_rest() {
+    let d = tmp_root();
+    let s = SlotState {
+        brightness: 3,
+        clock_set: true,
+        layout: swapped_ab(),
+        ..SlotState::default()
+    };
+    write_slot_state(d.path(), &s).unwrap();
+    let file = d.path().join("Config/slot.state");
+    let text = std::fs::read_to_string(&file).unwrap().replace(
+        "layout=b,a,l,r,select,start,x,y",
+        "layout=a,b,zzz,r,select,start",
+    );
+    std::fs::write(&file, text).unwrap();
+    let back = read_slot_state(d.path());
+    assert_eq!(back.layout, Layout::default());
+    assert_eq!(back.brightness, 3);
 }

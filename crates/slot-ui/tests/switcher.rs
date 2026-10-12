@@ -1,9 +1,10 @@
 use std::path::Path;
 
 use slot_gfx::{Draw, OUT_H, OUT_W};
-use slot_store::{StateEntry, RING_MAX};
+use slot_store::{StateEntry, SLOT_COUNT};
 use slot_ui::{
-    hint_face, hint_width, Polaroids, Printed, DOT, HINT_H, LEGEND, PHOTO_H, PHOTO_W, PLATE_H,
+    hint_face, hint_width, Polaroids, Printed, SlotMode, DOT, HINT_H, LEGEND, PHOTO_H, PHOTO_W,
+    PLATE_H,
 };
 
 fn entry(stamp: &str) -> StateEntry {
@@ -17,8 +18,10 @@ fn entry(stamp: &str) -> StateEntry {
 fn switcher_with(n: usize) -> Polaroids {
     Polaroids::new(
         (0..n)
-            .map(|i| entry(&format!("2026-08-09_{:02}-00-00", 14 - i)))
+            .map(|i| Some(entry(&format!("2026-08-09_{:02}-00-00", 14 - i))))
             .collect(),
+        0,
+        SlotMode::Load,
     )
 }
 
@@ -181,14 +184,14 @@ fn the_legend_runs_left_to_right_along_the_bottom_plate() {
 }
 
 #[test]
-fn a_full_ring_of_dots_stays_clear_of_the_legend() {
-    let mut p = switcher_with(RING_MAX);
+fn every_slot_dot_stays_clear_of_the_legend() {
+    let mut p = switcher_with(SLOT_COUNT);
     p.set_undo(Some("Undo save"));
     let out = draw(&p);
 
     let hints = hint_quads(&out);
     let dots = dot_rects(&out);
-    assert_eq!(dots.len(), RING_MAX);
+    assert_eq!(dots.len(), SLOT_COUNT);
     for d in dots {
         assert!(
             d.x >= 0.0 && d.x + d.w <= OUT_W as f32,
@@ -212,7 +215,7 @@ fn the_legend_names_every_action_on_screen() {
     let mut p = switcher_with(3);
     let keys: Vec<&str> = p.hints().iter().map(|h| h.key).collect();
     assert!(keys.contains(&"A"), "load is unlabelled");
-    assert!(keys.contains(&"Y"), "delete is unlabelled");
+    assert!(!keys.contains(&"Y"), "there is nothing left to delete");
     assert!(keys.contains(&"B"), "back is unlabelled");
     assert!(!keys.contains(&"X"), "undo shown with nothing to undo");
     p.set_undo(Some("Undo save"));
@@ -225,10 +228,8 @@ fn the_switcher_puts_the_ways_out_on_the_left() {
     p.set_undo(Some("Undo save"));
     let out = draw(&p);
     let mid = OUT_W as f32 / 2.0;
-    for key in ["B", "Y"] {
-        let r = hint_rect(&out, key).unwrap_or_else(|| panic!("no {key} hint"));
-        assert!(r.x + r.w < mid, "{key} is not on the left");
-    }
+    let r = hint_rect(&out, "B").expect("no B hint");
+    assert!(r.x + r.w < mid, "B is not on the left");
     for key in ["A", "X"] {
         let r = hint_rect(&out, key).unwrap_or_else(|| panic!("no {key} hint"));
         assert!(r.x > mid, "{key} is not on the right");
@@ -237,8 +238,10 @@ fn the_switcher_puts_the_ways_out_on_the_left() {
 
 fn hint_rect(out: &[Draw], key: &str) -> Option<Quad> {
     let i = match key {
-        "X" => LEGEND.len(),
-        _ => LEGEND.iter().position(|(k, _)| *k == key)?,
+        "B" => 0,
+        "A" => 1,
+        "X" => 2,
+        _ => return None,
     };
     hint_quads(out).get(i).copied()
 }
@@ -265,4 +268,12 @@ fn a_hint_is_laid_out_at_the_width_it_rasterises_to() {
     for (key, label) in [("A", "Load"), ("X", "Undo an interminable action")] {
         assert_eq!(hint_width(key, label), hint_face(key, label).w);
     }
+}
+
+#[test]
+fn the_legend_lists_back_and_one_verb_per_mode() {
+    assert_eq!(
+        LEGEND,
+        [("B", "Back"), ("A", "Play"), ("A", "Save"), ("A", "Load")]
+    );
 }

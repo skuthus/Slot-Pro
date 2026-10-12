@@ -87,11 +87,12 @@ fn lid_close_over_the_switcher_wakes_into_the_game() {
     assert!(matches!(a.phase(), Phase::Playing { .. }));
     assert_eq!(
         StateRing::new(d.path(), Platform::Gba, Core::Mgba, "Emerald")
-            .list()
-            .unwrap()
-            .len(),
+            .slots()
+            .iter()
+            .flatten()
+            .count(),
         1,
-        "only the deliberate save belongs in the ring"
+        "only the deliberate save belongs in the slots"
     );
 }
 

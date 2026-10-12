@@ -3,7 +3,8 @@ use std::path::Path;
 use slot_power::{Battery, Charge};
 use slot_store::StateEntry;
 use slot_ui::{
-    photo_face, Draw, PhotoFace, Polaroids, Printed, TexId, OUT_W, PHOTO_H, PHOTO_W, PLATE_H,
+    photo_face, Draw, PhotoFace, Polaroids, Printed, SlotMode, TexId, OUT_W, PHOTO_H, PHOTO_W,
+    PLATE_H,
 };
 
 fn entry(dir: &Path, stamp: &str) -> StateEntry {
@@ -15,7 +16,7 @@ fn entry(dir: &Path, stamp: &str) -> StateEntry {
 }
 
 fn switcher() -> Polaroids {
-    Polaroids::new(Vec::new())
+    Polaroids::new(vec![None, None, None], 0, SlotMode::Load)
 }
 
 fn write_png(path: &Path, w: u32, h: u32, rgb: [u8; 3]) {
@@ -70,7 +71,10 @@ fn a_stamp_ahead_of_the_clock_does_not_read_as_a_lifetime_ago() {
 
 #[test]
 fn an_entry_whose_thumbnail_is_missing_still_has_a_face() {
-    let face = photo_face(&entry(Path::new("/nonexistent"), "2026-08-09_14-32-05"));
+    let face = photo_face(&Some(entry(
+        Path::new("/nonexistent"),
+        "2026-08-09_14-32-05",
+    )));
     assert_eq!((face.w, face.h), (PHOTO_W, PHOTO_H));
     assert!(
         face.rgba.chunks_exact(4).all(|p| p[3] == 255),
@@ -83,7 +87,7 @@ fn the_photo_fills_the_face_and_keeps_its_colours() {
     let d = tempfile::tempdir().expect("tempdir");
     let e = entry(d.path(), "2026-08-09_14-32-05");
     write_png(&e.thumb, PHOTO_W, PHOTO_H, [0xd0, 0x40, 0x20]);
-    let face = photo_face(&e);
+    let face = photo_face(&Some(e));
     for (x, y) in [
         (0, 0),
         (PHOTO_W / 2, PHOTO_H / 2),
@@ -96,20 +100,83 @@ fn the_photo_fills_the_face_and_keeps_its_colours() {
 #[test]
 fn the_index_clamps_at_both_ends() {
     let d = Path::new("/nonexistent");
-    let mut p = Polaroids::new(vec![
-        entry(d, "2026-08-09_00-00-02"),
-        entry(d, "2026-08-09_00-00-01"),
-    ]);
+    let mut p = Polaroids::new(
+        vec![
+            Some(entry(d, "2026-08-09_00-00-02")),
+            None,
+            Some(entry(d, "2026-08-09_00-00-01")),
+        ],
+        0,
+        SlotMode::Load,
+    );
     p.left();
     assert_eq!(p.index, 0);
     p.right();
     p.right();
     p.right();
-    assert_eq!(p.index, 1);
+    p.right();
+    assert_eq!(p.index, 2);
     assert_eq!(
         p.selected().map(|e| e.stamp.as_str()),
         Some("2026-08-09_00-00-01")
     );
+}
+
+#[test]
+fn a_slot_with_no_state_has_a_blank_face() {
+    let face = photo_face(&None);
+    assert_eq!((face.w, face.h), (PHOTO_W, PHOTO_H));
+    assert!(face.rgba.chunks_exact(4).all(|p| p[3] == 255));
+}
+
+#[test]
+fn the_picker_opens_on_the_slot_it_was_given_and_never_past_the_last() {
+    let p = Polaroids::new(vec![None, None, None], 2, SlotMode::Save);
+    assert_eq!(p.index, 2);
+    let p = Polaroids::new(vec![None, None, None], 9, SlotMode::Save);
+    assert_eq!(p.index, 2);
+}
+
+#[test]
+fn the_title_names_the_slot_and_when_it_was_saved_or_that_it_is_empty() {
+    let d = Path::new("/nonexistent");
+    let mut p = Polaroids::new(
+        vec![None, Some(entry(d, "2026-08-09_14-32-05")), None],
+        0,
+        SlotMode::Load,
+    );
+    let now = "2026-08-09_14-36-05";
+    assert_eq!(p.title(now), "Slot 1 · Empty");
+    p.right();
+    assert_eq!(p.title(now), "Slot 2 · 4 min ago");
+    p.right();
+    assert_eq!(p.title(now), "Slot 3 · Empty");
+}
+
+#[test]
+fn each_mode_offers_back_and_its_own_verb() {
+    for (mode, verb) in [
+        (SlotMode::Play, "Play"),
+        (SlotMode::Save, "Save"),
+        (SlotMode::Load, "Load"),
+    ] {
+        let p = Polaroids::new(vec![None, None, None], 0, mode);
+        let hints: Vec<_> = p.hints().iter().map(|h| (h.key, h.label.clone())).collect();
+        assert_eq!(
+            hints,
+            [("B", "Back".to_string()), ("A", verb.to_string())],
+            "{mode:?}"
+        );
+    }
+}
+
+#[test]
+fn undo_is_added_to_the_hints_only_when_offered() {
+    let mut p = Polaroids::new(vec![None, None, None], 0, SlotMode::Save);
+    p.set_undo(Some("Undo save"));
+    assert_eq!(p.hints().last().map(|h| h.key), Some("X"));
+    p.set_undo(None);
+    assert_eq!(p.hints().len(), 2);
 }
 
 #[test]

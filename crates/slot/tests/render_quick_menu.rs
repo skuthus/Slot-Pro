@@ -75,6 +75,7 @@ fn the_quick_menu_renders_full_screen() {
     for (name, selected) in [
         ("screen", QuickRow::Screen),
         ("game", QuickRow::Game),
+        ("controls", QuickRow::Controls),
         ("date-time", QuickRow::DateTime),
         ("about", QuickRow::About),
     ] {
@@ -111,7 +112,10 @@ fn the_quick_menu_renders_full_screen() {
                 (32..=36).contains(&first),
                 "{name}: {row:?}'s label starts at x {first}"
             );
-            if matches!(row, QuickRow::About | QuickRow::Screen | QuickRow::Game) {
+            if matches!(
+                row,
+                QuickRow::About | QuickRow::Screen | QuickRow::Game | QuickRow::Controls
+            ) {
                 continue;
             }
             let value = inked(&px, 360..OUT_W as usize, top);

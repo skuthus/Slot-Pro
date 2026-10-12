@@ -6,19 +6,7 @@ use slot_input::Action;
 use slot_ui::{Draw, CART_H, CART_W};
 
 #[test]
-fn double_tap_menu_with_no_states_shakes_instead_of_doing_nothing() {
-    let d = tmp_root_with_carts(&["Emerald"]);
-    let mut a = app_playing_in(d.path(), "Emerald");
-    a.apply(Action::Polaroids);
-    assert!(
-        matches!(a.phase(), Phase::Playing { .. }),
-        "it must not open"
-    );
-    assert!(a.refusal_active(a.now()), "nothing told the player why");
-}
-
-#[test]
-fn loading_with_no_states_shakes_as_well() {
+fn loading_an_empty_slot_shakes_instead_of_doing_nothing() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mut a = app_playing_in(d.path(), "Emerald");
     a.apply(Action::LoadState);
@@ -29,7 +17,7 @@ fn loading_with_no_states_shakes_as_well() {
 fn no_plate_is_drawn_for_a_refusal() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mut a = app_playing_in(d.path(), "Emerald");
-    a.apply(Action::Polaroids);
+    a.apply(Action::LoadState);
     let mut out = Vec::new();
     a.draw(&mut out);
     assert!(a.refusal_active(a.now()), "nothing was refused");
@@ -44,7 +32,7 @@ fn no_plate_is_drawn_for_a_refusal() {
 fn the_screen_shake_decays_and_stops() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mut a = app_playing_in(d.path(), "Emerald");
-    a.apply(Action::Polaroids);
+    a.apply(Action::LoadState);
     let early = peak(&a, 0, 100);
     let late = peak(&a, 200, 300);
     assert!(early > 0.0, "nothing moved");
@@ -56,13 +44,13 @@ fn the_screen_shake_decays_and_stops() {
 }
 
 #[test]
-fn an_empty_ring_shakes_the_screen_and_not_a_cart() {
+fn an_empty_slot_shakes_the_screen_and_not_a_cart() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let mut a = app_playing_in(d.path(), "Emerald");
-    a.apply(Action::Polaroids);
+    a.apply(Action::LoadState);
     assert!(
         matches!(a.phase(), Phase::Playing { .. }),
-        "the switcher opened with nothing in it"
+        "the game was left for an empty slot"
     );
     assert_ne!(a.screen_shake(), 0.0, "the screen did not flinch");
 }

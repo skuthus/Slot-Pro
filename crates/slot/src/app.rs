@@ -8,16 +8,16 @@ use slot_input::{Action, Btn, MUTE_CHORD_MS};
 use slot_power::{Battery, Charge, LedState, LidPolicy, Power};
 use slot_retro::LinkChannel;
 use slot_store::{
-    format_stamp, read_slot_state, scan, write_slot_state, Cart, CartTitle, ColourCorrection, Core,
-    GbPalette, Platform, Shader, SlotState, StateEntry, StateRing, Theme, BLUE_LIGHT_MAX,
-    BRIGHTNESS_MAX, FF_SPEEDS, RING_MAX, VOLUME_MAX,
+    format_stamp, read_game_layout, read_slot_state, scan, write_game_layout, write_slot_state,
+    Cart, CartTitle, ColourCorrection, Core, GbPalette, Layout, Platform, Shader, SlotState,
+    StateEntry, StateRing, Theme, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, FF_SPEEDS, VOLUME_MAX,
 };
 use slot_ui::{
     board_from, board_zoom, draw_backdrop, draw_empty_slot, draw_footer, draw_slot_name,
     draw_sticker, ease, grown, lid_at, lid_from, lift_of, on_board, shelf_cart_at, ClockPicker,
     Draw, FfState, GbShell, Hud, HudKind, Icon, LinkBadge, Millis, Placed, Polaroids, PowerChoice,
-    QuickMenu, QuickMenuFaces, QuickRow, QuickValue, Refusal, Shelf, SlotChrome, TexId, Toast,
-    BOARD_W, BOARD_X, CART_W, CHIP_H, CHIP_U, CHIP_V, CHIP_W, HINT_EDGE, HINT_H, HOP_LIFT,
+    QuickMenu, QuickMenuFaces, QuickRow, QuickValue, Refusal, Shelf, SlotChrome, SlotMode, TexId,
+    Toast, BOARD_W, BOARD_X, CART_W, CHIP_H, CHIP_U, CHIP_V, CHIP_W, HINT_EDGE, HINT_H, HOP_LIFT,
     SHADOW_H, SHADOW_W, SOCKET_H, SOCKET_U, SOCKET_V, SOCKET_W, TURN_PAD,
 };
 
@@ -89,10 +89,13 @@ const ALERT_GONE: f32 = 0.9;
 
 const CLOCK_FLOOR: i64 = 1_577_836_800;
 
+const SHELF_PHOTO_GBA: (u32, u32) = (312, 208);
+const SHELF_PHOTO_GB: (u32, u32) = (270, 243);
+
 pub enum PendingUndo {
     Save {
-        stamp: String,
-        evicted: Option<(String, Vec<u8>, Vec<u8>)>,
+        slot: usize,
+        prior: Option<(String, Vec<u8>, Vec<u8>)>,
     },
     Load {
         prior: Vec<u8>,
@@ -311,6 +314,11 @@ pub struct App {
     link: Option<LinkSession>,
     sfx: Option<Sfx>,
     polaroids: Option<Polaroids>,
+    pause: Option<QuickRow>,
+    slots_from_pause: bool,
+    shelf_ring: Option<StateRing>,
+    start_state: Option<PathBuf>,
+    game_layout: Option<Layout>,
     pending: Option<(PendingUndo, Millis)>,
     legend_faces: Vec<TexId>,
     undo_face: Option<TexId>,
@@ -437,6 +445,11 @@ impl App {
             link: None,
             sfx: None,
             polaroids: None,
+            pause: None,
+            slots_from_pause: false,
+            shelf_ring: None,
+            start_state: None,
+            game_layout: None,
             pending: None,
             legend_faces: Vec::new(),
             undo_face: None,
@@ -669,6 +682,37 @@ impl App {
                 true => QuickValue::Hours24,
                 false => QuickValue::Hours12,
             }),
+            QuickRow::Shader => Some(shader_value(self.screen_shader())),
+            QuickRow::GameLayout => Some(match self.game_layout {
+                Some(_) => QuickValue::Custom,
+                None => QuickValue::Global,
+            }),
+            QuickRow::RemapA
+            | QuickRow::RemapB
+            | QuickRow::RemapL
+            | QuickRow::RemapR
+            | QuickRow::RemapSelect
+            | QuickRow::RemapStart
+            | QuickRow::RemapX
+            | QuickRow::RemapY => row
+                .remaps()
+                .map(|k| QuickValue::key(self.state.layout.sends(k))),
+            QuickRow::GameRemapA
+            | QuickRow::GameRemapB
+            | QuickRow::GameRemapL
+            | QuickRow::GameRemapR
+            | QuickRow::GameRemapSelect
+            | QuickRow::GameRemapStart
+            | QuickRow::GameRemapX
+            | QuickRow::GameRemapY => row
+                .remaps()
+                .map(|k| QuickValue::key(self.layout().sends(k))),
+            QuickRow::Controls
+            | QuickRow::GameControls
+            | QuickRow::Resume
+            | QuickRow::SaveState
+            | QuickRow::LoadState
+            | QuickRow::EjectGame => None,
             QuickRow::GbPalettes => Some(QuickValue::flag(self.state.gb_palettes)),
             QuickRow::GbaShader => Some(shader_value(self.state.shader_gba)),
             QuickRow::GbShader => Some(shader_value(self.state.shader_gb)),
@@ -1075,6 +1119,30 @@ impl App {
         self.state.colour_correction
     }
 
+    pub fn layout(&self) -> Layout {
+        self.game_layout.unwrap_or(self.state.layout)
+    }
+
+    pub fn set_game_layout(&mut self, layout: Option<Layout>) {
+        self.game_layout = layout;
+    }
+
+    pub fn game_layout_for(&self, platform: Platform, stem: &str) -> Option<Layout> {
+        read_game_layout(self.root.as_deref()?, platform, stem)
+    }
+
+    pub fn paused(&self) -> Option<QuickRow> {
+        self.pause
+    }
+
+    pub fn take_start_state(&mut self) -> Option<PathBuf> {
+        self.start_state.take()
+    }
+
+    pub fn slot_mode(&self) -> Option<SlotMode> {
+        self.polaroids.as_ref().map(|p| p.mode)
+    }
+
     pub fn clock_24h(&self) -> bool {
         self.state.clock_24h
     }
@@ -1286,9 +1354,16 @@ impl App {
         if self.game_menu.is_some() {
             return self.game_menu_input(action);
         }
+        if let Some(row) = self.pause {
+            return self.pause_input(row, action);
+        }
         let now = self.now();
         match self.phase {
+            Phase::Shelf if self.polaroids.is_some() => self.shelf_slots_input(action),
             Phase::Shelf => match action {
+                Action::GbaDown(Btn::Select) if self.core_picker.is_none() => {
+                    self.open_shelf_slots()
+                }
                 Action::GbaDown(Btn::Start) if self.core_picker.is_none() => {
                     self.open_core_picker()
                 }
@@ -1321,9 +1396,12 @@ impl App {
                 }
                 Action::Eject => self.eject(),
                 Action::GameMenu => self.game_menu_shortcut(),
-                Action::Polaroids => self.open_polaroids(),
-                Action::SaveState => self.save_state(),
-                Action::LoadState => self.load_newest(),
+                Action::QuickMenu => self.open_pause(),
+                Action::Polaroids => self.open_slots(SlotMode::Load, false),
+                Action::SaveState => self.save_to(self.active_slot()),
+                Action::LoadState => {
+                    self.load_slot(self.active_slot());
+                }
                 Action::RewindStart if !self.may_rewind() => self.refuse(),
                 Action::FfStart if !self.may_fast_forward() => self.refuse(),
                 _ => {}
@@ -1331,10 +1409,11 @@ impl App {
             Phase::Polaroids { .. } => match action {
                 Action::ShelfLeft | Action::GbaDown(Btn::Left) => self.flick(Polaroids::left),
                 Action::ShelfRight | Action::GbaDown(Btn::Right) => self.flick(Polaroids::right),
-                Action::GbaDown(Btn::A) => self.load_selected(),
-                Action::GbaDown(Btn::B) | Action::Polaroids => self.close_polaroids(),
+                Action::GbaDown(Btn::A) => self.commit_slot(),
+                Action::GbaDown(Btn::B) | Action::Polaroids | Action::QuickMenu => {
+                    self.back_from_slots()
+                }
                 Action::GbaDown(Btn::X) => self.undo(self.now()),
-                Action::GbaDown(Btn::Y) => self.delete_selected(),
                 _ => {}
             },
             Phase::About if action == Action::GbaDown(Btn::B) || action == Action::QuickMenu => {
@@ -1378,7 +1457,7 @@ impl App {
                 self.phase = clock_screen(self.utc_secs(), self.state.utc_offset_min, true);
             }
             QuickRow::About => self.phase = Phase::About,
-            QuickRow::Screen | QuickRow::Game => {
+            QuickRow::Screen | QuickRow::Game | QuickRow::Controls => {
                 if let Some(row) = row.child() {
                     self.phase = Phase::QuickMenu { row };
                 }
@@ -1395,6 +1474,7 @@ impl App {
             | QuickRow::CartTitle
             | QuickRow::ClockFormat
             | QuickRow::Rumble => {}
+            _ => {}
         }
     }
 
@@ -1415,6 +1495,18 @@ impl App {
             }
             QuickRow::CartTitle => s.cart_title = s.cart_title.step(right),
             QuickRow::ClockFormat => s.clock_24h = !s.clock_24h,
+            QuickRow::RemapA
+            | QuickRow::RemapB
+            | QuickRow::RemapL
+            | QuickRow::RemapR
+            | QuickRow::RemapSelect
+            | QuickRow::RemapStart
+            | QuickRow::RemapX
+            | QuickRow::RemapY => {
+                let Some(key) = row.remaps() else { return };
+                let to = s.layout.sends(key).step(right);
+                s.layout.set(key, to);
+            }
             QuickRow::GbaShader => {
                 let to = s.shader_gba.step(&Shader::GBA, right);
                 if to == s.shader_gba {
@@ -1434,7 +1526,7 @@ impl App {
             QuickRow::Turbo => s.turbo = !s.turbo,
             QuickRow::Rewind => s.rewind = !s.rewind,
             QuickRow::GbPalettes => s.gb_palettes = !s.gb_palettes,
-            QuickRow::DateTime | QuickRow::About | QuickRow::Screen | QuickRow::Game => return,
+            _ => return,
         }
         self.persist();
     }
@@ -2044,6 +2136,7 @@ impl App {
                 values: QuickRow::ALL.map(|r| self.quick_value(r)),
                 clock: self.quick_clock_faces,
                 faces: self.quick_menu_faces.as_ref(),
+                over_game: false,
             }
             .draw(out),
             Phase::Shelf => {
@@ -2054,6 +2147,11 @@ impl App {
                         let dim = 1.0 + (CORE_PICKER_DIM - 1.0) * open;
                         self.shelf()
                             .draw_row(Some(stem), 0.0, CORE_PICKER_RECEDE * open, dim, out);
+                        draw_empty_slot(out);
+                    }
+                    (_, Some(stem)) if self.polaroids.is_some() => {
+                        self.shelf()
+                            .draw_row(Some(stem), self.shelf_shake(), 0.0, 1.0, out);
                         draw_empty_slot(out);
                     }
                     _ => {
@@ -2069,13 +2167,15 @@ impl App {
                         draw_slot_name(self.shelf_platform, self.slot_name_alpha(), out);
                     }
                 }
-                draw_footer(
-                    self.battery,
-                    self.battery_percent,
-                    self.bolt,
-                    self.shelf_clock,
-                    out,
-                );
+                if self.polaroids.is_none() {
+                    draw_footer(
+                        self.battery,
+                        self.battery_percent,
+                        self.bolt,
+                        self.shelf_clock,
+                        out,
+                    );
+                }
             }
             Phase::About => {
                 draw_backdrop(self.wallpaper, out);
@@ -2126,6 +2226,28 @@ impl App {
         }
         if let Some(menu) = self.game_menu {
             self.draw_game_menu(menu, out);
+        }
+        if let Some(row) = self.pause {
+            QuickMenu {
+                row,
+                values: QuickRow::ALL.map(|r| self.quick_value(r)),
+                clock: None,
+                faces: self.quick_menu_faces.as_ref(),
+                over_game: true,
+            }
+            .draw(out);
+        }
+        if let (Phase::Shelf, Some(p)) = (&self.phase, &self.polaroids) {
+            if let Some(rect) = self.shelf_photo_rect() {
+                p.draw_framed(
+                    rect,
+                    self.battery,
+                    self.battery_percent,
+                    self.bolt,
+                    self.shelf_clock,
+                    out,
+                );
+            }
         }
         self.hud.draw(self.now(), out);
     }
@@ -2553,6 +2675,8 @@ impl App {
         };
         self.end_link();
         self.close_game_menu();
+        self.pause = None;
+        self.game_layout = None;
         self.flush_eject(&cart);
         self.pending = None;
         self.refusal = None;
@@ -3165,25 +3289,116 @@ impl App {
         }
     }
 
-    fn entries(&self) -> Vec<StateEntry> {
-        self.ring().and_then(|r| r.list().ok()).unwrap_or_default()
+    fn slot_ring(&self) -> Option<StateRing> {
+        match self.phase {
+            Phase::Shelf => self.shelf_ring.clone(),
+            _ => self.ring(),
+        }
     }
 
-    fn open_polaroids(&mut self) {
+    fn active_slot(&self) -> usize {
+        self.ring().map_or(0, |r| r.active_slot())
+    }
+
+    fn open_pause(&mut self) {
         if self.link_active() {
             return self.refuse();
         }
-        let entries = self.entries();
-        if entries.is_empty() {
+        self.pause = Some(QuickRow::PAUSE[0]);
+    }
+
+    fn pause_input(&mut self, row: QuickRow, action: Action) {
+        let row = match action {
+            Action::GbaDown(Btn::Up) => row.up(),
+            Action::GbaDown(Btn::Down) => row.down(),
+            Action::GbaDown(Btn::Left) => return self.change_pause_setting(row, false),
+            Action::GbaDown(Btn::Right) => return self.change_pause_setting(row, true),
+            Action::GbaDown(Btn::A) => return self.open_pause_row(row),
+            Action::GbaDown(Btn::B) | Action::QuickMenu => match row.parent() {
+                Some(up) => up,
+                None => {
+                    self.pause = None;
+                    return;
+                }
+            },
+            Action::Polaroids => {
+                self.pause = None;
+                return self.open_slots(SlotMode::Load, false);
+            }
+            Action::Eject => {
+                self.pause = None;
+                return self.eject();
+            }
+            _ => return,
+        };
+        self.pause = Some(row);
+    }
+
+    fn open_pause_row(&mut self, row: QuickRow) {
+        match row {
+            QuickRow::Resume => self.pause = None,
+            QuickRow::SaveState => {
+                self.pause = None;
+                self.open_slots(SlotMode::Save, true);
+            }
+            QuickRow::LoadState => {
+                self.pause = None;
+                self.open_slots(SlotMode::Load, true);
+            }
+            QuickRow::GameControls => self.pause = row.child(),
+            QuickRow::EjectGame => {
+                self.pause = None;
+                self.eject();
+            }
+            _ => {}
+        }
+    }
+
+    fn change_pause_setting(&mut self, row: QuickRow, right: bool) {
+        match row {
+            QuickRow::Shader => self.step_shader(right),
+            QuickRow::GameLayout => {
+                let to = match self.game_layout {
+                    Some(_) => None,
+                    None => Some(self.state.layout),
+                };
+                self.write_layout(to);
+            }
+            _ => {
+                if let Some(key) = row.remaps() {
+                    let mut layout = self.layout();
+                    layout.set(key, layout.sends(key).step(right));
+                    self.write_layout(Some(layout));
+                }
+            }
+        }
+    }
+
+    fn write_layout(&mut self, layout: Option<Layout>) {
+        self.game_layout = layout;
+        let (Some(root), Some(cart)) = (&self.root, self.seated()) else {
+            return;
+        };
+        if let Err(e) = write_game_layout(root, self.platform, cart, layout) {
+            eprintln!("slot: layout: {e}");
+        }
+    }
+
+    fn open_slots(&mut self, mode: SlotMode, from_pause: bool) {
+        if self.link_active() {
             return self.refuse();
         }
+        let Some(ring) = self.ring() else {
+            return;
+        };
         let Phase::Playing { cart } = &mut self.phase else {
             return;
         };
         let cart = std::mem::take(cart);
-        let mut p = Polaroids::new(entries);
+        let mut p = Polaroids::new(ring.slots().into(), ring.active_slot(), mode);
         p.set_undo(self.undo_label());
         self.polaroids = Some(p);
+        self.slots_from_pause = from_pause;
         self.phase = Phase::Polaroids { cart };
         self.push_hint_faces();
     }
@@ -3197,55 +3412,149 @@ impl App {
         self.phase = Phase::Playing { cart };
     }
 
-    fn load_selected(&mut self) {
+    fn back_from_slots(&mut self) {
+        let mode = self.slot_mode();
+        self.remember_slot();
+        self.close_polaroids();
+        if std::mem::take(&mut self.slots_from_pause) {
+            self.pause = Some(match mode {
+                Some(SlotMode::Save) => QuickRow::SaveState,
+                _ => QuickRow::LoadState,
+            });
+        }
+    }
+
+    fn remember_slot(&self) {
+        let (Some(p), Some(ring)) = (&self.polaroids, self.slot_ring()) else {
+            return;
+        };
+        if let Err(e) = ring.set_active_slot(p.index) {
+            eprintln!("slot: slot: {e}");
+        }
+    }
+
+    fn commit_slot(&mut self) {
+        let Some((mode, index)) = self.polaroids.as_ref().map(|p| (p.mode, p.index)) else {
+            return;
+        };
+        self.remember_slot();
+        match mode {
+            SlotMode::Save => {
+                self.slots_from_pause = false;
+                self.close_polaroids();
+                self.save_to(index);
+            }
+            SlotMode::Load => {
+                if self.load_slot(index) {
+                    self.slots_from_pause = false;
+                    self.close_polaroids();
+                }
+            }
+            SlotMode::Play => self.play_slot(),
+        }
+    }
+
+    fn open_shelf_slots(&mut self) {
+        let Some(root) = self.root.clone() else {
+            return;
+        };
+        let Some((stem, platform)) = self
+            .shelf()
+            .carts
+            .get(self.shelf().index)
+            .map(|c| (c.stem.clone(), c.platform))
+        else {
+            return;
+        };
+        let core = slot_store::core_for_platform(&root, &stem, platform);
+        let ring = StateRing::new(&root, platform, core, &stem);
+        let p = Polaroids::new(ring.slots().into(), ring.active_slot(), SlotMode::Play);
+        self.polaroids = Some(p);
+        self.shelf_ring = Some(ring);
+        self.push_hint_faces();
+    }
+
+    fn shelf_slots_input(&mut self, action: Action) {
+        match action {
+            Action::ShelfLeft | Action::GbaDown(Btn::Left) => self.flick(Polaroids::left),
+            Action::ShelfRight | Action::GbaDown(Btn::Right) => self.flick(Polaroids::right),
+            Action::GbaDown(Btn::A) => self.commit_slot(),
+            Action::GbaDown(Btn::B) | Action::GbaDown(Btn::Select) | Action::QuickMenu => {
+                self.close_shelf_slots()
+            }
+            _ => {}
+        }
+    }
+
+    fn close_shelf_slots(&mut self) {
+        self.remember_slot();
+        self.polaroids = None;
+        self.shelf_ring = None;
+    }
+
+    fn play_slot(&mut self) {
         let state = self
             .polaroids
             .as_ref()
             .and_then(|p| p.selected())
             .map(|e| e.state.clone());
-        let refused = state.map(|state| self.load_file(&state)) == Some(false);
-        if !refused {
-            self.close_polaroids();
+        self.close_shelf_slots();
+        let clean = state.is_none() && !self.state.eject_save;
+        self.start_state = state;
+        self.insert(clean);
+    }
+
+    pub fn slot_photo_size(&self) -> (u32, u32) {
+        match (self.shelf_slots_open(), self.selected_platform()) {
+            (true, Some(Platform::Gb | Platform::Gbc)) => SHELF_PHOTO_GB,
+            (true, _) => SHELF_PHOTO_GBA,
+            _ => (slot_ui::PHOTO_W, slot_ui::PHOTO_H),
         }
     }
 
-    fn delete_selected(&mut self) {
-        let stamp = self
-            .polaroids
-            .as_ref()
-            .and_then(|p| p.selected())
-            .map(|e| e.stamp.clone());
-        let (Some(stamp), Some(ring)) = (stamp, self.ring()) else {
-            return;
-        };
-        if let Err(e) = ring.remove(&stamp) {
-            eprintln!("slot: delete: {e}");
-            return;
-        }
-        if self.undo_targets(&stamp) {
-            self.pending = None;
-        }
-        let Some(p) = &mut self.polaroids else {
-            return;
-        };
-        p.remove_selected();
-        if p.is_empty() {
-            self.close_polaroids();
-        }
+    fn selected_platform(&self) -> Option<Platform> {
+        self.shelf()
+            .carts
+            .get(self.shelf().index)
+            .map(|c| c.platform)
     }
 
-    fn undo_targets(&self, stamp: &str) -> bool {
-        match self.pending.as_ref() {
-            Some((PendingUndo::Save { stamp: pending, .. }, _)) => pending == stamp,
-            _ => false,
-        }
+    fn shelf_photo_rect(&self) -> Option<(f32, f32, f32, f32)> {
+        let platform = self.selected_platform()?;
+        let (_, ch) = slot_ui::cart_box(platform);
+        let (w, h) = match platform {
+            Platform::Gba => SHELF_PHOTO_GBA,
+            _ => SHELF_PHOTO_GB,
+        };
+        let middle = slot_ui::rest_y(ch as f32) + ch as f32 / 2.0;
+        let (w, h) = (w as f32, h as f32);
+        Some(((OUT_W as f32 - w) / 2.0, (middle - h / 2.0).round(), w, h))
     }
 
-    fn load_newest(&mut self) {
-        let Some(newest) = self.entries().first().map(|e| e.state.clone()) else {
-            return self.refuse();
+    pub fn shelf_slots_open(&self) -> bool {
+        matches!(self.phase, Phase::Shelf) && self.polaroids.is_some()
+    }
+
+    pub fn slots_open(&self) -> bool {
+        self.polaroids.is_some()
+    }
+
+    fn load_slot(&mut self, slot: usize) -> bool {
+        let entry = self
+            .ring()
+            .and_then(|r| r.slots().into_iter().nth(slot).flatten());
+        let Some(entry) = entry else {
+            self.refuse();
+            return false;
         };
-        self.load_file(&newest);
+        if !self.load_file(&entry.state) {
+            return false;
+        }
+        if let Some(ring) = self.ring() {
+            let _ = ring.set_active_slot(slot);
+        }
+        self.hud.toast(Toast::SlotLoaded(slot), self.now());
+        true
     }
 
     fn load_file(&mut self, state: &Path) -> bool {
@@ -3265,19 +3574,18 @@ impl App {
         };
         let prior = snapshot.state();
         snapshot.load(bytes);
-        self.hud.toast(Toast::StateLoaded, self.now());
         if let Some(prior) = prior {
             self.pending = Some((PendingUndo::Load { prior }, self.now()));
         }
         true
     }
 
-    fn save_state(&mut self) {
+    fn save_to(&mut self, slot: usize) {
         let (Some(ring), Some(snapshot)) = (self.ring(), &self.snapshot) else {
             return;
         };
         if !snapshot.resume_trusted() {
-            eprintln!("slot: save: the core refused the resume it was given, not pushing a state");
+            eprintln!("slot: save: the core refused the resume it was given, not saving a state");
             return self.refuse();
         }
         let Some(state) = snapshot.state() else {
@@ -3285,14 +3593,17 @@ impl App {
             return;
         };
         let thumb = snapshot.thumb().unwrap_or_default();
-        let stamp = free_stamp(&ring, self.wall_secs());
-        let evicted = doomed(&ring);
-        if let Err(e) = ring.push(&state, &thumb, &stamp) {
+        let prior = ring.read_slot(slot);
+        let stamp = format_stamp(self.wall_secs());
+        if let Err(e) = ring.write_slot(slot, &state, &thumb, &stamp) {
             eprintln!("slot: save: {e}");
             return;
         }
-        self.hud.toast(Toast::StateSaved, self.now());
-        self.pending = Some((PendingUndo::Save { stamp, evicted }, self.now()));
+        if let Err(e) = ring.set_active_slot(slot) {
+            eprintln!("slot: slot: {e}");
+        }
+        self.hud.toast(Toast::SlotSaved(slot), self.now());
+        self.pending = Some((PendingUndo::Save { slot, prior }, self.now()));
     }
 
     pub fn undo_available(&self, now: Millis) -> bool {
@@ -3357,7 +3668,7 @@ impl App {
             return;
         };
         match what {
-            PendingUndo::Save { stamp, evicted } => self.undo_save(&stamp, evicted),
+            PendingUndo::Save { slot, prior } => self.undo_save(slot, prior),
             PendingUndo::Load { prior } => {
                 if let Some(snapshot) = &self.snapshot {
                     snapshot.load(prior);
@@ -3367,23 +3678,20 @@ impl App {
         self.close_polaroids();
     }
 
-    fn undo_save(&self, stamp: &str, evicted: Option<(String, Vec<u8>, Vec<u8>)>) {
+    fn undo_save(&self, slot: usize, prior: Option<(String, Vec<u8>, Vec<u8>)>) {
         let Some(ring) = self.ring() else {
             return;
         };
-        if let Err(e) = ring.remove(stamp) {
-            eprintln!("slot: undo: {e}");
-            return;
-        }
-        let Some((stamp, state, thumb)) = evicted else {
-            return;
+        let undone = match prior {
+            Some((stamp, state, thumb)) => ring.write_slot(slot, &state, &thumb, &stamp),
+            None => ring.clear_slot(slot),
         };
-        if let Err(e) = ring.push(&state, &thumb, &stamp) {
+        if let Err(e) = undone {
             eprintln!("slot: undo: {e}");
         }
     }
 
-    pub fn polaroid_entries(&self) -> &[StateEntry] {
+    pub fn polaroid_entries(&self) -> &[Option<StateEntry>] {
         match &self.polaroids {
             Some(p) => &p.entries,
             None => &[],
@@ -3394,13 +3702,6 @@ impl App {
         if let Some(p) = &mut self.polaroids {
             p.set_faces(faces);
         }
-    }
-
-    pub fn polaroid_stamp(&self) -> Option<&str> {
-        self.polaroids
-            .as_ref()
-            .and_then(|p| p.selected())
-            .map(|e| e.stamp.as_str())
     }
 
     pub fn polaroid_title(&self, now: &str) -> String {
@@ -3480,27 +3781,6 @@ fn system_secs() -> i64 {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs() as i64)
         .unwrap_or(0)
-}
-
-fn doomed(ring: &StateRing) -> Option<(String, Vec<u8>, Vec<u8>)> {
-    let entries = ring.list().ok()?;
-    let oldest = entries.get(RING_MAX - 1)?;
-    let (state, thumb) = ring.read(&oldest.stamp).ok()?;
-    Some((oldest.stamp.clone(), state, thumb))
-}
-
-fn free_stamp(ring: &StateRing, now: i64) -> String {
-    let taken: Vec<String> = ring
-        .list()
-        .map(|l| l.into_iter().map(|e| e.stamp).collect())
-        .unwrap_or_default();
-    let mut secs = now;
-    let mut stamp = format_stamp(secs);
-    while taken.contains(&stamp) {
-        secs += 1;
-        stamp = format_stamp(secs);
-    }
-    stamp
 }
 
 fn centred_top(rows: usize) -> f32 {

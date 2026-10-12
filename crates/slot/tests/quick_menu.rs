@@ -7,7 +7,7 @@ use common::{
 use slot::app::{App, Phase};
 use slot_input::{Action, Btn};
 use slot_store::{
-    read_slot_state, write_slot_state, CartTitle, ColourCorrection, Shader, SlotState,
+    read_slot_state, write_slot_state, CartTitle, ColourCorrection, PadKey, Shader, SlotState,
 };
 use slot_ui::{
     edge, Draw, Icon, QuickMenuFaces, QuickRow, QuickValue, TexId, MENU_PAD, OUT_W, QUICK_EDGE,
@@ -95,16 +95,103 @@ fn menu_or_b_closes_it_back_onto_the_carousel_where_you_were() {
 }
 
 #[test]
-fn the_quick_menu_is_only_on_the_carousel() {
+fn menu_in_a_game_opens_the_pause_menu_and_not_the_carousel_menu() {
     let d = tmp_root_with_carts(&["Emerald", "Fusion"]);
     let mut a = app_playing_in(d.path(), "Emerald");
     a.apply(Action::QuickMenu);
     assert!(
         matches!(a.phase(), Phase::Playing { .. }),
-        "MENU raised the quick menu over a game: {:?}",
+        "MENU left the game: {:?}",
         a.phase()
     );
-    assert_eq!(a.quick_menu(), None);
+    assert_eq!(a.quick_menu(), None, "the carousel menu opened over a game");
+    assert_eq!(a.paused(), Some(QuickRow::Resume));
+}
+
+#[test]
+fn controls_sits_between_gameplay_and_date_and_time_and_opens_the_remap_page() {
+    let (_d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::Controls);
+    press(&mut a, Btn::A);
+    assert_eq!(a.quick_menu(), Some(QuickRow::RemapA));
+    press(&mut a, Btn::B);
+    assert_eq!(a.quick_menu(), Some(QuickRow::Controls));
+}
+
+#[test]
+fn every_button_starts_out_sending_itself() {
+    let (_d, a, _) = on_carousel();
+    for (row, value) in QuickRow::CONTROLS.into_iter().zip([
+        QuickValue::KeyA,
+        QuickValue::KeyB,
+        QuickValue::KeyL,
+        QuickValue::KeyR,
+        QuickValue::KeySelect,
+        QuickValue::KeyStart,
+    ]) {
+        assert_eq!(a.quick_value(row), Some(value), "{row:?}");
+    }
+}
+
+#[test]
+fn the_remap_rows_step_through_the_gba_buttons_on_either_arrow_and_save() {
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::RemapA);
+    for (btn, want, value) in [
+        (Btn::Right, PadKey::B, QuickValue::KeyB),
+        (Btn::Right, PadKey::L, QuickValue::KeyL),
+        (Btn::Left, PadKey::B, QuickValue::KeyB),
+        (Btn::Left, PadKey::A, QuickValue::KeyA),
+        (Btn::Left, PadKey::Y, QuickValue::KeyY),
+        (Btn::Left, PadKey::X, QuickValue::KeyX),
+        (Btn::Right, PadKey::Y, QuickValue::KeyY),
+        (Btn::Right, PadKey::A, QuickValue::KeyA),
+    ] {
+        press(&mut a, btn);
+        assert_eq!(a.layout().sends(PadKey::A), want, "{btn:?}");
+        assert_eq!(read_slot_state(d.path()).layout.sends(PadKey::A), want);
+        assert_eq!(a.quick_value(QuickRow::RemapA), Some(value));
+    }
+}
+
+#[test]
+fn a_remap_row_changes_only_its_own_button() {
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::RemapR);
+    press(&mut a, Btn::Right);
+    let saved = read_slot_state(d.path()).layout;
+    assert_eq!(saved.sends(PadKey::R), PadKey::Select);
+    for key in [
+        PadKey::A,
+        PadKey::B,
+        PadKey::L,
+        PadKey::Select,
+        PadKey::Start,
+    ] {
+        assert_eq!(saved.sends(key), key, "{key:?} moved with R");
+    }
+}
+
+#[test]
+fn the_remap_rows_wrap_like_the_rest_of_their_page() {
+    let (_d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::RemapA);
+    press(&mut a, Btn::Up);
+    assert_eq!(a.quick_menu(), Some(QuickRow::RemapY));
+    press(&mut a, Btn::Down);
+    assert_eq!(a.quick_menu(), Some(QuickRow::RemapA));
+}
+
+#[test]
+fn a_saved_layout_is_what_the_carousel_boots_with() {
+    let mut layout = slot_store::Layout::default();
+    layout.set(PadKey::A, PadKey::B);
+    let (_d, a, _) = on_carousel_with(SlotState {
+        layout,
+        ..SlotState::default()
+    });
+    assert_eq!(a.layout(), layout);
+    assert_eq!(a.quick_value(QuickRow::RemapA), Some(QuickValue::KeyB));
 }
 
 #[test]
@@ -120,6 +207,7 @@ fn up_and_down_move_the_bar_and_wrap_at_the_ends() {
     for want in [
         QuickRow::Screen,
         QuickRow::Game,
+        QuickRow::Controls,
         QuickRow::DateTime,
         QuickRow::About,
         QuickRow::Screen,
@@ -677,5 +765,28 @@ fn the_clock_row_flips_between_24_and_12_hours_and_saves() {
     assert_eq!(
         a.quick_value(QuickRow::ClockFormat),
         Some(QuickValue::Hours12)
+    );
+}
+
+#[test]
+fn x_and_y_keep_their_turbo_until_remapped_and_can_send_select_and_start() {
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::RemapX);
+    assert_eq!(a.quick_value(QuickRow::RemapX), Some(QuickValue::KeyX));
+    assert_eq!(a.quick_value(QuickRow::RemapY), Some(QuickValue::KeyY));
+    for _ in 0..2 {
+        press(&mut a, Btn::Left);
+    }
+    assert_eq!(
+        read_slot_state(d.path()).layout.sends(PadKey::X),
+        PadKey::Select
+    );
+    press(&mut a, Btn::Down);
+    for _ in 0..2 {
+        press(&mut a, Btn::Left);
+    }
+    assert_eq!(
+        read_slot_state(d.path()).layout.sends(PadKey::Y),
+        PadKey::Start
     );
 }

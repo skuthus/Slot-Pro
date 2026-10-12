@@ -572,3 +572,36 @@ fn seated(root: &Path, snapshot: Box<dyn Snapshot>, state: SlotState) -> App {
     }
     a
 }
+
+pub fn session_playing(root: &Path) -> Session {
+    clocked(root);
+    let mut s = Session::boot(root.to_path_buf());
+    s.feed([slot_input::RawEvent::Down(slot_input::Btn::A)], 16);
+    s.feed([slot_input::RawEvent::Up(slot_input::Btn::A)], 32);
+    let deadline = std::time::Instant::now() + Duration::from_secs(10);
+    while !matches!(s.app().phase(), slot::app::Phase::Playing { .. }) {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the cart never seated"
+        );
+        s.update(1.0 / 60.0);
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    s
+}
+
+pub fn pad_of(s: &Session) -> u16 {
+    s.emu().expect("no core in the slot").input().0
+}
+
+pub fn await_speed(s: &mut Session, want: slot::emu::Speed) {
+    let deadline = std::time::Instant::now() + Duration::from_secs(5);
+    while s.observed_speed() != Some(want) {
+        assert!(
+            std::time::Instant::now() < deadline,
+            "the core never ran at {want:?}"
+        );
+        s.update(1.0 / 60.0);
+        std::thread::sleep(Duration::from_millis(1));
+    }
+}

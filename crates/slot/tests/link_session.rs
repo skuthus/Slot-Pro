@@ -225,10 +225,11 @@ fn a_live_session_refuses_a_state_load_even_when_one_exists() {
 }
 
 #[test]
-fn a_live_session_refuses_a_switcher_pick_even_when_one_exists() {
+fn a_live_session_refuses_a_slot_pick_even_when_one_exists() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let r = StateRing::new(d.path(), Platform::Gba, Core::Mgba, "Emerald");
-    r.push(&[0u8; 64], b"png", "2026-08-09_00-00-00").unwrap();
+    r.write_slot(0, &[0u8; 64], b"png", "2026-08-09_00-00-00")
+        .unwrap();
     let mut a = app_playing_in(d.path(), "Emerald");
     a.apply(Action::Polaroids);
     a.begin_link(0);
@@ -248,7 +249,8 @@ fn a_live_session_refuses_a_switcher_pick_even_when_one_exists() {
 fn a_live_session_refuses_to_undo_a_load() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let r = StateRing::new(d.path(), Platform::Gba, Core::Mgba, "Emerald");
-    r.push(&[7u8; 64], b"png", "2026-08-09_00-00-00").unwrap();
+    r.write_slot(0, &[7u8; 64], b"png", "2026-08-09_00-00-00")
+        .unwrap();
     let (snapshot, loaded) = StubSnapshot::pair();
     let mut a = app_playing_with(d.path(), "Emerald", snapshot);
 
@@ -278,7 +280,8 @@ fn a_live_session_refuses_to_undo_a_load() {
 fn a_live_session_refuses_to_open_the_switcher() {
     let d = tmp_root_with_carts(&["Emerald"]);
     let r = StateRing::new(d.path(), Platform::Gba, Core::Mgba, "Emerald");
-    r.push(&[0u8; 64], b"png", "2026-08-09_00-00-00").unwrap();
+    r.write_slot(0, &[0u8; 64], b"png", "2026-08-09_00-00-00")
+        .unwrap();
     let mut a = app_playing_in(d.path(), "Emerald");
     a.begin_link(0);
 

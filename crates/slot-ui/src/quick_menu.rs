@@ -3,6 +3,7 @@ use crate::plate::{arrows_hint_face, centred_hints, hint_face, UndoFace, HINT_H,
 use crate::power_menu::{MENU_H, MENU_INK, MENU_PAD, MENU_PX};
 use crate::slot_chrome::{edge, opening};
 use crate::text;
+use slot_store::PadKey;
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum QuickRow {
@@ -22,10 +23,34 @@ pub enum QuickRow {
     GbPalettes,
     CartTitle,
     ClockFormat,
+    Controls,
+    RemapA,
+    RemapB,
+    RemapL,
+    RemapR,
+    RemapSelect,
+    RemapStart,
+    RemapX,
+    RemapY,
+    Resume,
+    SaveState,
+    LoadState,
+    Shader,
+    GameControls,
+    EjectGame,
+    GameLayout,
+    GameRemapA,
+    GameRemapB,
+    GameRemapL,
+    GameRemapR,
+    GameRemapSelect,
+    GameRemapStart,
+    GameRemapX,
+    GameRemapY,
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 16] = [
+    pub const ALL: [QuickRow; 40] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -42,11 +67,36 @@ impl QuickRow {
         QuickRow::GbPalettes,
         QuickRow::CartTitle,
         QuickRow::ClockFormat,
+        QuickRow::Controls,
+        QuickRow::RemapA,
+        QuickRow::RemapB,
+        QuickRow::RemapL,
+        QuickRow::RemapR,
+        QuickRow::RemapSelect,
+        QuickRow::RemapStart,
+        QuickRow::RemapX,
+        QuickRow::RemapY,
+        QuickRow::Resume,
+        QuickRow::SaveState,
+        QuickRow::LoadState,
+        QuickRow::Shader,
+        QuickRow::GameControls,
+        QuickRow::EjectGame,
+        QuickRow::GameLayout,
+        QuickRow::GameRemapA,
+        QuickRow::GameRemapB,
+        QuickRow::GameRemapL,
+        QuickRow::GameRemapR,
+        QuickRow::GameRemapSelect,
+        QuickRow::GameRemapStart,
+        QuickRow::GameRemapX,
+        QuickRow::GameRemapY,
     ];
 
-    pub const MAIN: [QuickRow; 4] = [
+    pub const MAIN: [QuickRow; 5] = [
         QuickRow::Screen,
         QuickRow::Game,
+        QuickRow::Controls,
         QuickRow::DateTime,
         QuickRow::About,
     ];
@@ -69,8 +119,54 @@ impl QuickRow {
         QuickRow::EjectSave,
     ];
 
+    pub const CONTROLS: [QuickRow; 8] = [
+        QuickRow::RemapA,
+        QuickRow::RemapB,
+        QuickRow::RemapL,
+        QuickRow::RemapR,
+        QuickRow::RemapSelect,
+        QuickRow::RemapStart,
+        QuickRow::RemapX,
+        QuickRow::RemapY,
+    ];
+
+    pub const PAUSE: [QuickRow; 6] = [
+        QuickRow::Resume,
+        QuickRow::SaveState,
+        QuickRow::LoadState,
+        QuickRow::Shader,
+        QuickRow::GameControls,
+        QuickRow::EjectGame,
+    ];
+
+    pub const GAME_CONTROLS: [QuickRow; 9] = [
+        QuickRow::GameLayout,
+        QuickRow::GameRemapA,
+        QuickRow::GameRemapB,
+        QuickRow::GameRemapL,
+        QuickRow::GameRemapR,
+        QuickRow::GameRemapSelect,
+        QuickRow::GameRemapStart,
+        QuickRow::GameRemapX,
+        QuickRow::GameRemapY,
+    ];
+
     pub fn index(self) -> usize {
         self as usize
+    }
+
+    pub fn remaps(self) -> Option<PadKey> {
+        Some(match self {
+            QuickRow::RemapA | QuickRow::GameRemapA => PadKey::A,
+            QuickRow::RemapB | QuickRow::GameRemapB => PadKey::B,
+            QuickRow::RemapL | QuickRow::GameRemapL => PadKey::L,
+            QuickRow::RemapR | QuickRow::GameRemapR => PadKey::R,
+            QuickRow::RemapSelect | QuickRow::GameRemapSelect => PadKey::Select,
+            QuickRow::RemapStart | QuickRow::GameRemapStart => PadKey::Start,
+            QuickRow::RemapX | QuickRow::GameRemapX => PadKey::X,
+            QuickRow::RemapY | QuickRow::GameRemapY => PadKey::Y,
+            _ => return None,
+        })
     }
 
     pub fn page(self) -> &'static [QuickRow] {
@@ -87,6 +183,29 @@ impl QuickRow {
             | QuickRow::Turbo
             | QuickRow::Rumble
             | QuickRow::EjectSave => &QuickRow::GAME,
+            QuickRow::RemapA
+            | QuickRow::RemapB
+            | QuickRow::RemapL
+            | QuickRow::RemapR
+            | QuickRow::RemapSelect
+            | QuickRow::RemapStart
+            | QuickRow::RemapX
+            | QuickRow::RemapY => &QuickRow::CONTROLS,
+            QuickRow::Resume
+            | QuickRow::SaveState
+            | QuickRow::LoadState
+            | QuickRow::Shader
+            | QuickRow::GameControls
+            | QuickRow::EjectGame => &QuickRow::PAUSE,
+            QuickRow::GameLayout
+            | QuickRow::GameRemapA
+            | QuickRow::GameRemapB
+            | QuickRow::GameRemapL
+            | QuickRow::GameRemapR
+            | QuickRow::GameRemapSelect
+            | QuickRow::GameRemapStart
+            | QuickRow::GameRemapX
+            | QuickRow::GameRemapY => &QuickRow::GAME_CONTROLS,
             _ => &QuickRow::MAIN,
         }
     }
@@ -95,6 +214,8 @@ impl QuickRow {
         match self.page()[0] {
             QuickRow::GbaShader => Some(QuickRow::Screen),
             QuickRow::FastForward => Some(QuickRow::Game),
+            QuickRow::RemapA => Some(QuickRow::Controls),
+            QuickRow::GameLayout => Some(QuickRow::GameControls),
             _ => None,
         }
     }
@@ -103,6 +224,8 @@ impl QuickRow {
         match self {
             QuickRow::Screen => Some(QuickRow::SCREEN[0]),
             QuickRow::Game => Some(QuickRow::GAME[0]),
+            QuickRow::Controls => Some(QuickRow::CONTROLS[0]),
+            QuickRow::GameControls => Some(QuickRow::GAME_CONTROLS[0]),
             _ => None,
         }
     }
@@ -129,13 +252,37 @@ impl QuickRow {
             QuickRow::GbPalettes => "GB Palettes",
             QuickRow::CartTitle => "Game Title",
             QuickRow::ClockFormat => "Clock",
+            QuickRow::Controls | QuickRow::GameControls => "Controls",
+            QuickRow::RemapA | QuickRow::GameRemapA => "A Button",
+            QuickRow::RemapB | QuickRow::GameRemapB => "B Button",
+            QuickRow::RemapL | QuickRow::GameRemapL => "L Button",
+            QuickRow::RemapR | QuickRow::GameRemapR => "R Button",
+            QuickRow::RemapSelect | QuickRow::GameRemapSelect => "Select",
+            QuickRow::RemapStart | QuickRow::GameRemapStart => "Start",
+            QuickRow::RemapX | QuickRow::GameRemapX => "X Button",
+            QuickRow::RemapY | QuickRow::GameRemapY => "Y Button",
+            QuickRow::Resume => "Resume",
+            QuickRow::SaveState => "Save State",
+            QuickRow::LoadState => "Load State",
+            QuickRow::Shader => "Shader",
+            QuickRow::EjectGame => "Eject Game",
+            QuickRow::GameLayout => "Layout",
         }
     }
 
     pub fn opens(self) -> bool {
         matches!(
             self,
-            QuickRow::DateTime | QuickRow::About | QuickRow::Screen | QuickRow::Game
+            QuickRow::DateTime
+                | QuickRow::About
+                | QuickRow::Screen
+                | QuickRow::Game
+                | QuickRow::Controls
+                | QuickRow::GameControls
+                | QuickRow::Resume
+                | QuickRow::SaveState
+                | QuickRow::LoadState
+                | QuickRow::EjectGame
         )
     }
 
@@ -169,10 +316,20 @@ pub enum QuickValue {
     Above,
     Hours12,
     Hours24,
+    KeyA,
+    KeyB,
+    KeyL,
+    KeyR,
+    KeySelect,
+    KeyStart,
+    KeyX,
+    KeyY,
+    Global,
+    Custom,
 }
 
 impl QuickValue {
-    pub const ALL: [QuickValue; 17] = [
+    pub const ALL: [QuickValue; 27] = [
         QuickValue::Speed2,
         QuickValue::Speed3,
         QuickValue::Speed4,
@@ -190,6 +347,16 @@ impl QuickValue {
         QuickValue::Above,
         QuickValue::Hours12,
         QuickValue::Hours24,
+        QuickValue::KeyA,
+        QuickValue::KeyB,
+        QuickValue::KeyL,
+        QuickValue::KeyR,
+        QuickValue::KeySelect,
+        QuickValue::KeyStart,
+        QuickValue::KeyX,
+        QuickValue::KeyY,
+        QuickValue::Global,
+        QuickValue::Custom,
     ];
 
     pub fn index(self) -> usize {
@@ -215,6 +382,16 @@ impl QuickValue {
             QuickValue::Above => "Above",
             QuickValue::Hours12 => "12 Hour",
             QuickValue::Hours24 => "24 Hour",
+            QuickValue::KeyA => "A",
+            QuickValue::KeyB => "B",
+            QuickValue::KeyL => "L",
+            QuickValue::KeyR => "R",
+            QuickValue::KeySelect => "Select",
+            QuickValue::KeyStart => "Start",
+            QuickValue::KeyX => "Turbo A",
+            QuickValue::KeyY => "Turbo B",
+            QuickValue::Global => "Global",
+            QuickValue::Custom => "Custom",
         }
     }
 
@@ -225,6 +402,19 @@ impl QuickValue {
             4 => Some(QuickValue::Speed4),
             6 => Some(QuickValue::Speed6),
             _ => None,
+        }
+    }
+
+    pub fn key(key: PadKey) -> QuickValue {
+        match key {
+            PadKey::A => QuickValue::KeyA,
+            PadKey::B => QuickValue::KeyB,
+            PadKey::L => QuickValue::KeyL,
+            PadKey::R => QuickValue::KeyR,
+            PadKey::Select => QuickValue::KeySelect,
+            PadKey::Start => QuickValue::KeyStart,
+            PadKey::X => QuickValue::KeyX,
+            PadKey::Y => QuickValue::KeyY,
         }
     }
 
@@ -247,6 +437,7 @@ const CARET_PX: f32 = 24.0;
 const LEGEND_Y: f32 = 427.0;
 pub const QUICK_SPLIT: f32 = LEGEND_Y - 2.0;
 const DIM_INK: [u8; 3] = [0x9a, 0x9a, 0xa4];
+const OVER_GAME_ALPHA: f32 = 0.86;
 
 pub fn quick_label_face(row: QuickRow) -> UndoFace {
     quick_text_face(row.label(), MENU_INK)
@@ -330,22 +521,28 @@ pub struct QuickMenu<'a> {
     pub values: [Option<QuickValue>; QuickRow::ALL.len()],
     pub clock: Option<[(TexId, u32, u32); 2]>,
     pub faces: Option<&'a QuickMenuFaces>,
+    pub over_game: bool,
 }
 
 impl QuickMenu<'_> {
     pub fn draw(&self, out: &mut Vec<Draw>) {
+        let mut backdrop = opening();
+        if self.over_game {
+            backdrop[3] = OVER_GAME_ALPHA;
+        }
         out.push(Draw::Rect {
             x: 0.0,
             y: 0.0,
             w: OUT_W as f32,
             h: OUT_H as f32,
-            colour: opening(),
+            colour: backdrop,
         });
+        let pitch = pitch(self.row.page().len());
         out.push(Draw::Rect {
             x: 0.0,
             y: row_top(self.row) + BAR_INSET,
             w: OUT_W as f32,
-            h: QUICK_PITCH - 2.0 * BAR_INSET,
+            h: pitch - 2.0 * BAR_INSET,
             colour: edge(),
         });
         let Some(faces) = self.faces else {
@@ -353,7 +550,7 @@ impl QuickMenu<'_> {
         };
         let (right, pad) = (OUT_W as f32 - QUICK_EDGE, MENU_PAD as f32);
         for &row in self.row.page() {
-            let y = row_top(row) + TYPE_DROP;
+            let y = row_top(row) + TYPE_DROP - (QUICK_PITCH - pitch) / 2.0;
             let lit = row == self.row;
             if let Some(&(tex, w, h)) = faces.labels.get(row.index()) {
                 push(out, tex, QUICK_EDGE - pad, y, w, h);
@@ -386,9 +583,23 @@ impl QuickMenu<'_> {
     }
 }
 
-fn row_top(row: QuickRow) -> f32 {
-    let top = (OUT_H as f32 - QUICK_PITCH * row.page().len() as f32) / 2.0;
-    top + QUICK_PITCH * row.position() as f32
+const TALL_PAGE: usize = 7;
+const COMPACT_PITCH: f32 = 42.0;
+
+fn pitch(rows: usize) -> f32 {
+    match rows > TALL_PAGE {
+        true => COMPACT_PITCH,
+        false => QUICK_PITCH,
+    }
+}
+
+pub fn row_top(row: QuickRow) -> f32 {
+    let rows = row.page().len();
+    let (pitch, room) = match rows > TALL_PAGE {
+        true => (COMPACT_PITCH, LEGEND_Y),
+        false => (QUICK_PITCH, OUT_H as f32),
+    };
+    (room - pitch * rows as f32) / 2.0 + pitch * row.position() as f32
 }
 
 fn push(out: &mut Vec<Draw>, tex: TexId, x: f32, y: f32, w: u32, h: u32) {

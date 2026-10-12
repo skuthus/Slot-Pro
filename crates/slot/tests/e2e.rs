@@ -133,11 +133,12 @@ fn the_whole_pass_from_boot_to_resume() {
     );
 
     p.chord(Btn::R1);
-    let saved = p.ring("Emerald").list().expect("list the ring");
-    assert_eq!(saved.len(), 1);
+    let saved = p.ring("Emerald").slots();
+    assert_eq!(saved.iter().flatten().count(), 1);
+    let first = saved[0].as_ref().expect("the save missed the first slot");
     assert!(
-        !std::fs::read(&saved[0].thumb).expect("thumb").is_empty(),
-        "the polaroid has no picture"
+        !std::fs::read(&first.thumb).expect("thumb").is_empty(),
+        "the slot has no picture"
     );
 
     p.event(RawEvent::Down(Btn::R2));
@@ -154,7 +155,9 @@ fn the_whole_pass_from_boot_to_resume() {
     p.tap(Btn::Menu);
     p.event(RawEvent::Down(Btn::Menu));
     assert!(matches!(p.session.app().phase(), Phase::Polaroids { .. }));
-    assert_eq!(p.session.app().polaroid_entries().len(), 1);
+    let shown = p.session.app().polaroid_entries();
+    assert_eq!(shown.len(), 3);
+    assert!(shown[0].is_some() && shown[1].is_none() && shown[2].is_none());
     p.event(RawEvent::Up(Btn::Menu));
     p.tap(Btn::A);
     assert_eq!(p.playing(), Some("Emerald"));

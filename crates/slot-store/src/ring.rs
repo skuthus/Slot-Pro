@@ -5,11 +5,13 @@ use crate::core::Core;
 use crate::platform::Platform;
 
 pub const RING_MAX: usize = 10;
+pub const SLOT_COUNT: usize = 3;
 
 const STATE_EXT: &str = "state";
 const THUMB_EXT: &str = "png";
 const RESUME: &str = "resume";
 const REFUSED: &str = "resume-refused";
+const ACTIVE_SLOT: &str = "active-slot.txt";
 
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct StateEntry {
@@ -18,6 +20,7 @@ pub struct StateEntry {
     pub thumb: PathBuf,
 }
 
+#[derive(Clone)]
 pub struct StateRing {
     dir: PathBuf,
 }
@@ -125,6 +128,103 @@ impl StateRing {
         Ok(())
     }
 
+    pub fn slots(&self) -> [Option<StateEntry>; SLOT_COUNT] {
+        let mut slots: [Option<StateEntry>; SLOT_COUNT] = Default::default();
+        let Ok(dir) = std::fs::read_dir(&self.dir) else {
+            return slots;
+        };
+        for entry in dir.flatten() {
+            let path = entry.path();
+            if path.extension().and_then(|e| e.to_str()) != Some(STATE_EXT) {
+                continue;
+            }
+            let Some((slot, stamp)) = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .and_then(slot_name)
+            else {
+                continue;
+            };
+            let newer = slots[slot].as_ref().is_none_or(|e| e.stamp < stamp);
+            if newer {
+                let name = slot_file(slot, &stamp);
+                slots[slot] = Some(StateEntry {
+                    state: self.path(&name, STATE_EXT),
+                    thumb: self.path(&name, THUMB_EXT),
+                    stamp,
+                });
+            }
+        }
+        slots
+    }
+
+    pub fn write_slot(
+        &self,
+        slot: usize,
+        state: &[u8],
+        thumb_png: &[u8],
+        stamp: &str,
+    ) -> std::io::Result<()> {
+        let name = slot_file(slot, stamp);
+        std::fs::create_dir_all(&self.dir)?;
+        atomic_write(&self.path(&name, THUMB_EXT), thumb_png)?;
+        atomic_write(&self.path(&name, STATE_EXT), state)?;
+        self.clear_slot_except(slot, Some(stamp))
+    }
+
+    pub fn read_slot(&self, slot: usize) -> Option<(String, Vec<u8>, Vec<u8>)> {
+        let entry = self.slots().into_iter().nth(slot).flatten()?;
+        let state = std::fs::read(&entry.state).ok()?;
+        let thumb = std::fs::read(&entry.thumb).unwrap_or_default();
+        Some((entry.stamp, state, thumb))
+    }
+
+    pub fn clear_slot(&self, slot: usize) -> std::io::Result<()> {
+        self.clear_slot_except(slot, None)
+    }
+
+    fn clear_slot_except(&self, slot: usize, keep: Option<&str>) -> std::io::Result<()> {
+        let dir = match std::fs::read_dir(&self.dir) {
+            Ok(d) => d,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+            Err(e) => return Err(e),
+        };
+        for entry in dir.flatten() {
+            let path = entry.path();
+            let Some((at, stamp)) = path
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .and_then(slot_name)
+            else {
+                continue;
+            };
+            if at == slot && keep != Some(stamp.as_str()) {
+                std::fs::remove_file(&path)?;
+            }
+        }
+        Ok(())
+    }
+
+    pub fn active_slot(&self) -> usize {
+        std::fs::read_to_string(self.dir.join(ACTIVE_SLOT))
+            .ok()
+            .and_then(|s| s.trim().parse::<usize>().ok())
+            .and_then(|n| n.checked_sub(1))
+            .filter(|&n| n < SLOT_COUNT)
+            .unwrap_or(0)
+    }
+
+    pub fn set_active_slot(&self, slot: usize) -> std::io::Result<()> {
+        if slot >= SLOT_COUNT || slot == self.active_slot() {
+            return Ok(());
+        }
+        std::fs::create_dir_all(&self.dir)?;
+        atomic_write(
+            &self.dir.join(ACTIVE_SLOT),
+            format!("{}\n", slot + 1).as_bytes(),
+        )
+    }
+
     fn path(&self, stem: &str, ext: &str) -> PathBuf {
         self.dir.join(format!("{stem}.{ext}"))
     }
@@ -138,6 +238,17 @@ impl StateRing {
         }
         Ok(self.path(stamp, ext))
     }
+}
+
+fn slot_file(slot: usize, stamp: &str) -> String {
+    format!("slot{}-{stamp}", slot + 1)
+}
+
+fn slot_name(name: &str) -> Option<(usize, String)> {
+    let rest = name.strip_prefix("slot")?;
+    let (n, stamp) = rest.split_once('-')?;
+    let slot = n.parse::<usize>().ok()?.checked_sub(1)?;
+    (slot < SLOT_COUNT && is_stamp(stamp)).then(|| (slot, stamp.to_string()))
 }
 
 fn is_stamp(s: &str) -> bool {

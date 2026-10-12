@@ -12,6 +12,17 @@ pub const PHOTO_W: u32 = 240;
 pub const PHOTO_H: u32 = 160;
 
 const BLANK: [u8; 3] = [0x3a, 0x3a, 0x3e];
+const FRAME: f32 = 6.0;
+const FRAME_INK: [f32; 4] = [0.05, 0.05, 0.06, 1.0];
+
+fn blank() -> [f32; 4] {
+    [
+        BLANK[0] as f32 / 255.0,
+        BLANK[1] as f32 / 255.0,
+        BLANK[2] as f32 / 255.0,
+        1.0,
+    ]
+}
 
 pub const DOT: f32 = 6.0;
 const DOT_GAP: f32 = 10.0;
@@ -19,9 +30,26 @@ const DOT_DIM: f32 = 0.35;
 
 const MARGIN: f32 = 16.0;
 
-pub const LEGEND: [(&str, &str); 3] = [("B", "Back"), ("Y", "Delete"), ("A", "Load")];
-const WAYS_OUT: usize = 2;
+pub const LEGEND: [(&str, &str); 4] = [("B", "Back"), ("A", "Play"), ("A", "Save"), ("A", "Load")];
+const WAYS_OUT: usize = 1;
 const UNDO_KEY: &str = "X";
+
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum SlotMode {
+    Play,
+    Save,
+    Load,
+}
+
+impl SlotMode {
+    fn legend(self) -> usize {
+        match self {
+            SlotMode::Play => 1,
+            SlotMode::Save => 2,
+            SlotMode::Load => 3,
+        }
+    }
+}
 
 pub struct PhotoFace {
     pub rgba: Vec<u8>,
@@ -29,25 +57,26 @@ pub struct PhotoFace {
     pub h: u32,
 }
 
-pub fn photo_face(entry: &StateEntry) -> PhotoFace {
-    let rgba = art::cover(&entry.thumb, PHOTO_W, PHOTO_H).unwrap_or_else(|| {
-        std::iter::repeat_n(
-            [BLANK[0], BLANK[1], BLANK[2], 255],
-            (PHOTO_W * PHOTO_H) as usize,
-        )
-        .flatten()
-        .collect()
-    });
-    PhotoFace {
-        rgba,
-        w: PHOTO_W,
-        h: PHOTO_H,
-    }
+pub fn photo_face(entry: &Option<StateEntry>) -> PhotoFace {
+    photo_face_sized(entry, PHOTO_W, PHOTO_H)
+}
+
+pub fn photo_face_sized(entry: &Option<StateEntry>, w: u32, h: u32) -> PhotoFace {
+    let rgba = entry
+        .as_ref()
+        .and_then(|e| art::cover(&e.thumb, w, h))
+        .unwrap_or_else(|| {
+            std::iter::repeat_n([BLANK[0], BLANK[1], BLANK[2], 255], (w * h) as usize)
+                .flatten()
+                .collect()
+        });
+    PhotoFace { rgba, w, h }
 }
 
 pub struct Polaroids {
-    pub entries: Vec<StateEntry>,
+    pub entries: Vec<Option<StateEntry>>,
     pub index: usize,
+    pub mode: SlotMode,
     faces: Vec<TexId>,
     title: Option<TexId>,
     hint_faces: Vec<TexId>,
@@ -55,10 +84,11 @@ pub struct Polaroids {
 }
 
 impl Polaroids {
-    pub fn new(entries: Vec<StateEntry>) -> Self {
+    pub fn new(entries: Vec<Option<StateEntry>>, index: usize, mode: SlotMode) -> Self {
         Polaroids {
+            index: index.min(entries.len().saturating_sub(1)),
             entries,
-            index: 0,
+            mode,
             faces: Vec::new(),
             title: None,
             hint_faces: Vec::new(),
@@ -83,7 +113,7 @@ impl Polaroids {
     }
 
     pub fn hints(&self) -> Vec<Hint> {
-        let mut out = hint_row(&LEGEND);
+        let mut out = hint_row(&[LEGEND[0], LEGEND[self.mode.legend()]]);
         if let Some(label) = &self.undo {
             out.push(Hint {
                 key: UNDO_KEY,
@@ -93,12 +123,8 @@ impl Polaroids {
         out
     }
 
-    pub fn is_empty(&self) -> bool {
-        self.entries.is_empty()
-    }
-
     pub fn selected(&self) -> Option<&StateEntry> {
-        self.entries.get(self.index)
+        self.entries.get(self.index).and_then(Option::as_ref)
     }
 
     pub fn dots(&self) -> (usize, usize) {
@@ -106,21 +132,11 @@ impl Polaroids {
     }
 
     pub fn title(&self, now: &str) -> String {
-        match self.selected() {
+        let when = match self.selected() {
             Some(e) => Self::relative_time(&e.stamp, now),
-            None => String::new(),
-        }
-    }
-
-    pub fn remove_selected(&mut self) {
-        if self.index >= self.entries.len() {
-            return;
-        }
-        self.entries.remove(self.index);
-        if self.index < self.faces.len() {
-            self.faces.remove(self.index);
-        }
-        self.index = self.index.min(self.entries.len().saturating_sub(1));
+            None => "Empty".into(),
+        };
+        format!("Slot {} · {when}", self.index + 1)
     }
 
     pub fn left(&mut self) {
@@ -140,6 +156,44 @@ impl Polaroids {
         out: &mut Vec<Draw>,
     ) {
         self.draw_photo(out);
+        self.draw_top(battery, battery_percent, bolt, clock, out);
+        self.draw_bottom(out);
+    }
+
+    pub fn draw_framed(
+        &self,
+        rect: (f32, f32, f32, f32),
+        battery: Option<Battery>,
+        battery_percent: Printed,
+        bolt: Option<TexId>,
+        clock: Printed,
+        out: &mut Vec<Draw>,
+    ) {
+        let (x, y, w, h) = rect;
+        out.push(Draw::Rect {
+            x: x - FRAME,
+            y: y - FRAME,
+            w: w + 2.0 * FRAME,
+            h: h + 2.0 * FRAME,
+            colour: FRAME_INK,
+        });
+        out.push(match (self.faces.get(self.index), self.selected()) {
+            (Some(&tex), Some(_)) => Draw::Tex {
+                x,
+                y,
+                w,
+                h,
+                tex,
+                alpha: 1.0,
+            },
+            _ => Draw::Rect {
+                x,
+                y,
+                w,
+                h,
+                colour: blank(),
+            },
+        });
         self.draw_top(battery, battery_percent, bolt, clock, out);
         self.draw_bottom(out);
     }
@@ -209,11 +263,13 @@ impl Polaroids {
         let tail = &widths[WAYS_OUT..];
         let tail_w = tail.iter().sum::<f32>() + HINT_GAP * (tail.len() - 1) as f32;
         let mut x = MARGIN;
+        let faces = [0, self.mode.legend(), LEGEND.len()];
         for (i, w) in widths.iter().enumerate() {
             if i == WAYS_OUT {
                 x = OUT_W as f32 - MARGIN - tail_w;
             }
-            out.push(hint_quad(x, y, *w, self.hint_faces.get(i).copied()));
+            let face = self.hint_faces.get(faces[i]).copied();
+            out.push(hint_quad(x, y, *w, face));
             x += w + HINT_GAP;
         }
         self.draw_dots(top, out);

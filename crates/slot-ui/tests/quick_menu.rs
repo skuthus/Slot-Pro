@@ -79,7 +79,7 @@ fn the_fast_forward_row_offers_the_four_ceilings_the_card_can_hold() {
 fn the_rows_run_in_the_order_the_user_chose() {
     assert_eq!(
         QuickRow::MAIN.map(QuickRow::label),
-        ["Screen", "Gameplay", "Date & Time", "About"]
+        ["Screen", "Gameplay", "Controls", "Date & Time", "About"]
     );
     assert_eq!(
         QuickRow::SCREEN.map(QuickRow::label),
@@ -103,20 +103,54 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Auto Save on Eject"
         ]
     );
-    let opens: Vec<QuickRow> = QuickRow::ALL.into_iter().filter(|r| r.opens()).collect();
     assert_eq!(
-        opens,
+        QuickRow::CONTROLS.map(QuickRow::label),
         [
-            QuickRow::Screen,
-            QuickRow::DateTime,
-            QuickRow::About,
-            QuickRow::Game
+            "A Button", "B Button", "L Button", "R Button", "Select", "Start", "X Button",
+            "Y Button"
         ]
     );
+    assert_eq!(
+        QuickRow::PAUSE.map(QuickRow::label),
+        [
+            "Resume",
+            "Save State",
+            "Load State",
+            "Shader",
+            "Controls",
+            "Eject Game"
+        ]
+    );
+    assert_eq!(
+        QuickRow::GAME_CONTROLS.map(QuickRow::label),
+        [
+            "Layout", "A Button", "B Button", "L Button", "R Button", "Select", "Start",
+            "X Button", "Y Button"
+        ]
+    );
+    let opens: Vec<QuickRow> = QuickRow::ALL.into_iter().filter(|r| r.opens()).collect();
+    for row in [
+        QuickRow::Screen,
+        QuickRow::Game,
+        QuickRow::Controls,
+        QuickRow::DateTime,
+        QuickRow::About,
+        QuickRow::GameControls,
+        QuickRow::Resume,
+        QuickRow::SaveState,
+        QuickRow::LoadState,
+        QuickRow::EjectGame,
+    ] {
+        assert!(opens.contains(&row), "{row:?} does not open");
+    }
+    assert_eq!(opens.len(), 10);
     for page in [
         &QuickRow::MAIN[..],
         &QuickRow::SCREEN[..],
         &QuickRow::GAME[..],
+        &QuickRow::CONTROLS[..],
+        &QuickRow::PAUSE[..],
+        &QuickRow::GAME_CONTROLS[..],
     ] {
         for &row in page {
             assert_eq!(row.page(), page, "{row:?}");
@@ -145,7 +179,17 @@ fn the_values_read_as_the_menu_prints_them() {
             "Below",
             "Above",
             "12 Hour",
-            "24 Hour"
+            "24 Hour",
+            "A",
+            "B",
+            "L",
+            "R",
+            "Select",
+            "Start",
+            "Turbo A",
+            "Turbo B",
+            "Global",
+            "Custom"
         ]
     );
     assert_eq!(QuickValue::flag(true), QuickValue::On);
@@ -208,4 +252,35 @@ fn the_two_carets_point_different_ways() {
         slot_ui::quick_caret_face(true).rgba,
         "a caret glyph is missing from the symbols font"
     );
+}
+
+#[test]
+fn the_remap_rows_name_the_button_they_edit_and_the_values_the_one_they_send() {
+    use slot_store::PadKey;
+    for (row, key) in QuickRow::CONTROLS.into_iter().zip(PadKey::ALL) {
+        assert_eq!(row.remaps(), Some(key));
+        let shown = match key {
+            PadKey::X => "turbo a",
+            PadKey::Y => "turbo b",
+            _ => key.name(),
+        };
+        assert_eq!(QuickValue::key(key).text().to_lowercase(), shown);
+    }
+    for (row, key) in QuickRow::GAME_CONTROLS[1..].iter().zip(PadKey::ALL) {
+        assert_eq!(row.remaps(), Some(key));
+    }
+    assert_eq!(QuickRow::Resume.remaps(), None);
+    assert_eq!(QuickRow::GameLayout.remaps(), None);
+}
+
+#[test]
+fn the_pages_nest_and_back_out_to_the_row_that_opened_them() {
+    assert_eq!(QuickRow::Controls.child(), Some(QuickRow::RemapA));
+    assert_eq!(QuickRow::RemapStart.parent(), Some(QuickRow::Controls));
+    assert_eq!(QuickRow::GameControls.child(), Some(QuickRow::GameLayout));
+    assert_eq!(
+        QuickRow::GameRemapStart.parent(),
+        Some(QuickRow::GameControls)
+    );
+    assert_eq!(QuickRow::Resume.parent(), None);
 }

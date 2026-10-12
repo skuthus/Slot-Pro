@@ -1,5 +1,5 @@
 use slot_gfx::{OUT_H, OUT_W};
-use slot_store::GbPalette;
+use slot_store::{GbPalette, SLOT_COUNT};
 
 use crate::hud::{HUD_INK, PLATE_H};
 use crate::icon::{haloed, HALO_PX};
@@ -26,6 +26,8 @@ pub enum Toast {
     ShaderSimpletex,
     CardUnwritable,
     Palette(GbPalette),
+    SlotSaved(usize),
+    SlotLoaded(usize),
 }
 
 impl Toast {
@@ -53,12 +55,16 @@ impl Toast {
         Self::FIXED
             .into_iter()
             .chain(GbPalette::all().map(Toast::Palette))
+            .chain((0..SLOT_COUNT).map(Toast::SlotSaved))
+            .chain((0..SLOT_COUNT).map(Toast::SlotLoaded))
             .collect()
     }
 
     pub fn index(self) -> usize {
         match self {
             Toast::Palette(p) => Self::FIXED.len() + p.index(),
+            Toast::SlotSaved(n) => Self::FIXED.len() + GbPalette::all().count() + n,
+            Toast::SlotLoaded(n) => Self::FIXED.len() + GbPalette::all().count() + SLOT_COUNT + n,
             fixed => Self::FIXED.iter().position(|t| *t == fixed).unwrap_or(0),
         }
     }
@@ -94,6 +100,14 @@ impl Toast {
             Toast::ShaderSimpletex => "Shader: Simpletex",
             Toast::CardUnwritable => "Can't write to SD card",
             Toast::Palette(p) => p.label(),
+            Toast::SlotSaved(n) => ["Saved to Slot 1", "Saved to Slot 2", "Saved to Slot 3"]
+                .get(n)
+                .copied()
+                .unwrap_or("State Saved"),
+            Toast::SlotLoaded(n) => ["Loaded Slot 1", "Loaded Slot 2", "Loaded Slot 3"]
+                .get(n)
+                .copied()
+                .unwrap_or("State Loaded"),
         }
     }
 }

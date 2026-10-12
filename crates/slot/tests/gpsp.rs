@@ -522,17 +522,15 @@ fn changing_the_ini_mid_session_does_not_move_a_manual_save_state() {
     s.app_mut().apply(Action::SaveState);
 
     assert!(
-        !StateRing::new(d.path(), Platform::Gba, Core::Gpsp, "Emerald")
-            .list()
-            .unwrap()
-            .is_empty(),
+        StateRing::new(d.path(), Platform::Gba, Core::Gpsp, "Emerald")
+            .read_slot(0)
+            .is_some(),
         "the manual save did not land under the seated core's own directory"
     );
     assert!(
         StateRing::new(d.path(), Platform::Gba, Core::Mgba, "Emerald")
-            .list()
-            .unwrap()
-            .is_empty(),
+            .read_slot(0)
+            .is_none(),
         "the manual save followed the ini's new (absent) reading instead of the core the \
          session actually spawned"
     );

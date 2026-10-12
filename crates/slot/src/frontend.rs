@@ -8,12 +8,12 @@ use slot_power::{Platform, Power};
 use slot_store::{format_stamp, CartTitle};
 use slot_ui::{
     arrows_hint_face, badge_face, bezel_face, cart_shadow, chip_face, chip_shadow_face,
-    date_time_text, gb_cart_shadow, hhmm, hint_face, icon_face, menu_face, photo_face,
-    quick_caret_face, quick_label_face, quick_legend_faces, quick_value_face, rebuild_count_face,
-    rebuild_title_face, set_clock_hint_face, socket_face, sticker_face, title_face, toast_face,
-    wallpaper_face, word_face, CartFace, GbShell, Icon, LinkBadge, PowerChoice, QuickMenuFaces,
-    QuickRow, QuickValue, RebuildScreen, StickerFields, Toast, UndoFace, ALERT_PX, BOLT_PX,
-    HUD_ICON_PX, HUD_INK, LEGEND,
+    date_time_text, gb_cart_shadow, hhmm, hint_face, icon_face, menu_face, quick_caret_face,
+    quick_label_face, quick_legend_faces, quick_value_face, rebuild_count_face, rebuild_title_face,
+    set_clock_hint_face, socket_face, sticker_face, title_face, toast_face, wallpaper_face,
+    word_face, CartFace, GbShell, Icon, LinkBadge, PowerChoice, QuickMenuFaces, QuickRow,
+    QuickValue, RebuildScreen, StickerFields, Toast, UndoFace, ALERT_PX, BOLT_PX, HUD_ICON_PX,
+    HUD_INK, LEGEND,
 };
 
 use crate::app::{App, LinkRow, Phase};
@@ -644,14 +644,19 @@ struct Faces<'a> {
 }
 
 fn sync_switcher(app: &mut App, compositor: &mut Compositor, texes: Faces, state: &mut Switcher) {
-    if !matches!(app.phase(), Phase::Polaroids { .. }) {
+    if !app.slots_open() {
         state.open = false;
         return;
     }
     if !state.open {
         state.open = true;
         state.titled = None;
-        let faces: Vec<_> = app.polaroid_entries().iter().map(photo_face).collect();
+        let (w, h) = app.slot_photo_size();
+        let faces: Vec<_> = app
+            .polaroid_entries()
+            .iter()
+            .map(|e| slot_ui::photo_face_sized(e, w, h))
+            .collect();
         let ids = faces
             .iter()
             .enumerate()
@@ -674,9 +679,10 @@ fn sync_switcher(app: &mut App, compositor: &mut Compositor, texes: Faces, state
             .map(|l| upload(compositor, texes.undo, hint_face("X", l)));
         app.set_undo_face(label);
     }
-    if state.titled.as_deref() != app.polaroid_stamp() {
-        state.titled = app.polaroid_stamp().map(str::to_string);
-        let face = title_face(&app.polaroid_title(&format_stamp(app.wall_secs())));
+    let title = app.polaroid_title(&format_stamp(app.wall_secs()));
+    if state.titled.as_deref() != Some(title.as_str()) {
+        let face = title_face(&title);
+        state.titled = Some(title);
         let id = upload(compositor, texes.title, face);
         app.set_polaroid_title_face(id);
     }

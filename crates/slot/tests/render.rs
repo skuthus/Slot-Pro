@@ -7,7 +7,7 @@ use slot::thumb;
 use slot_gfx::{lcd3x_mask, Compositor, Draw, HeadlessSurface, OUT_W, SRC_H, SRC_W};
 use slot_retro::{ButtonMask, MockCore, RetroCore};
 use slot_store::{Core, Platform, StateRing};
-use slot_ui::{photo_face, Polaroids, Printed};
+use slot_ui::{photo_face, Polaroids, Printed, SlotMode};
 
 static GL: Mutex<()> = Mutex::new(());
 
@@ -89,7 +89,7 @@ fn a_saved_frame_arrives_intact_on_its_screenshot() {
         .expect("push");
     let entries = ring.list().expect("list");
 
-    let face = photo_face(&entries[0]);
+    let face = photo_face(&Some(entries[0].clone()));
     let tex = c.create_texture(face.w, face.h, &face.rgba);
     c.begin_frame();
     c.draw_list(&[Draw::Tex {
@@ -126,9 +126,9 @@ fn the_switcher_magnifies_its_screenshot_without_resampling_it() {
     .expect("push");
     let entries = ring.list().expect("list");
 
-    let face = photo_face(&entries[0]);
+    let face = photo_face(&Some(entries[0].clone()));
     let tex = c.create_texture_nearest(face.w, face.h, &face.rgba);
-    let mut switcher = Polaroids::new(entries);
+    let mut switcher = Polaroids::new(entries.into_iter().map(Some).collect(), 0, SlotMode::Load);
     switcher.set_faces(vec![tex]);
     c.set_screen_power(1.0);
     c.begin_frame();

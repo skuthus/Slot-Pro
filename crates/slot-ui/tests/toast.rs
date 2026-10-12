@@ -1,4 +1,4 @@
-use slot_store::GbPalette;
+use slot_store::{GbPalette, SLOT_COUNT};
 use slot_ui::{
     toast_face, toast_rect, Draw, Hud, HudKind, Toast, ALARM_BAND_H, OUT_H, OUT_W, PLATE_H,
 };
@@ -49,10 +49,20 @@ fn the_banner_says_what_happened_and_never_what_is_on_screen() {
         ],
         "a banner was added or dropped: every face is uploaded by its place in this list"
     );
+    let palettes = GbPalette::all().count();
     assert_eq!(
-        all[17..],
+        all[17..17 + palettes],
         GbPalette::all().map(Toast::Palette).collect::<Vec<_>>()[..],
         "the palette banners do not follow the fixed ones in palette order"
+    );
+    let slots: Vec<Toast> = (0..SLOT_COUNT)
+        .map(Toast::SlotSaved)
+        .chain((0..SLOT_COUNT).map(Toast::SlotLoaded))
+        .collect();
+    assert_eq!(
+        all[17 + palettes..],
+        slots[..],
+        "the slot banners do not close the list"
     );
     for (i, t) in all.iter().enumerate() {
         assert_eq!(t.index(), i, "{t:?} does not answer to its own place");
@@ -283,4 +293,18 @@ fn the_card_alarm_inks_both_of_its_lines() {
     let half = f.h / 2;
     assert!(inked(0..half), "the first line is blank");
     assert!(inked(half + 8..f.h), "the second line is blank");
+}
+
+#[test]
+fn each_slot_has_its_own_saved_and_loaded_toast() {
+    for n in 0..SLOT_COUNT {
+        assert_eq!(
+            Toast::SlotSaved(n).text(),
+            format!("Saved to Slot {}", n + 1)
+        );
+        assert_eq!(
+            Toast::SlotLoaded(n).text(),
+            format!("Loaded Slot {}", n + 1)
+        );
+    }
 }

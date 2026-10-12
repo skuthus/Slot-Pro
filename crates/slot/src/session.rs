@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
-use slot_input::{Action, Gestures, Millis, RawEvent};
+use slot_input::{Action, Btn, Gestures, Millis, RawEvent};
 use slot_retro::Rumble;
 use slot_store::Platform;
 use slot_ui::FfState;
@@ -211,7 +211,7 @@ impl Session {
                 self.pad.apply(Action::GbaUp(btn));
             }
         } else {
-            self.pad.apply(action);
+            self.pad.apply(remapped(self.app.layout(), action));
         }
         self.sync_rumble();
     }
@@ -354,7 +354,10 @@ impl Session {
     }
 
     fn held(&self) -> bool {
-        self.app.power_menu().is_some() || self.app.game_menu_open() || self.app.shutting_down()
+        self.app.power_menu().is_some()
+            || self.app.game_menu_open()
+            || self.app.paused().is_some()
+            || self.app.shutting_down()
     }
 
     fn dozing(&self) -> bool {
@@ -442,9 +445,16 @@ impl Session {
         self.app
             .set_video_mode(crate::video_mode::video_mode_for(&self.root, stem));
         self.app.set_link_loaded(serial);
-        let resume = (!self.app.starting_clean())
-            .then(|| persist::read_resume(&self.root, platform, core, stem))
-            .flatten();
+        let layout = self.app.game_layout_for(platform, stem);
+        self.app.set_game_layout(layout);
+        let resume = match self.app.take_start_state() {
+            Some(slot) => std::fs::read(&slot)
+                .map_err(|e| eprintln!("slot: slot: {e}"))
+                .ok(),
+            None => (!self.app.starting_clean())
+                .then(|| persist::read_resume(&self.root, platform, core, stem))
+                .flatten(),
+        };
         launch("resume state read");
         let player = self.app.link_player();
         let palette = crate::core::palette_for(self.app.gb_palette(), platform, &rom, player);
@@ -511,4 +521,34 @@ pub(crate) fn trace() -> bool {
 
 fn launch(step: &str) {
     eprintln!("slot: launch: {step} at {:.1} ms", crate::boot_time::ms());
+}
+
+fn remapped(layout: slot_store::Layout, action: Action) -> Action {
+    use slot_store::PadKey;
+    let key = |btn| match btn {
+        Btn::A => Some(PadKey::A),
+        Btn::B => Some(PadKey::B),
+        Btn::L1 => Some(PadKey::L),
+        Btn::R1 => Some(PadKey::R),
+        Btn::Select => Some(PadKey::Select),
+        Btn::Start => Some(PadKey::Start),
+        Btn::X => Some(PadKey::X),
+        Btn::Y => Some(PadKey::Y),
+        _ => None,
+    };
+    let btn = |key| match key {
+        PadKey::A => Btn::A,
+        PadKey::B => Btn::B,
+        PadKey::L => Btn::L1,
+        PadKey::R => Btn::R1,
+        PadKey::Select => Btn::Select,
+        PadKey::Start => Btn::Start,
+        PadKey::X => Btn::X,
+        PadKey::Y => Btn::Y,
+    };
+    match action {
+        Action::GbaDown(b) => Action::GbaDown(key(b).map_or(b, |k| btn(layout.sends(k)))),
+        Action::GbaUp(b) => Action::GbaUp(key(b).map_or(b, |k| btn(layout.sends(k)))),
+        other => other,
+    }
 }
