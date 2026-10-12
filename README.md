@@ -1,5 +1,11 @@
 <div align="center">
 
+<img src=".github/resources/slot-pro-logo.png" width="100%" alt="slot pro.">
+
+</div>
+
+<div align="center">
+
 <img src=".github/resources/banner.png" width="100%" alt="slot. A bespoke, Game Boy-centric frontend for the Anbernic RG SP.">
 
 <a href="LICENSE"><img src="https://img.shields.io/github/license/BrandonKowalski/slot?style=for-the-badge&labelColor=242429&color=4d4d57" height="36" alt="License"></a>
@@ -29,7 +35,8 @@ Changes in this fork, detailed in the [changelog](CHANGELOG.md):
   for Game Boy and Game Boy Color games.
 - Analog Mode, which plays like a real GBA: no save states, menus, rewind or resume.
 - Faster boots through a shader cache and reading a resumed game ahead.
-- A "slot pro." boot logo and About label.
+- A "slot pro." boot logo and About label. The "pro" is set in Cascadia Code Italic
+  (SIL Open Font License).
 
 ---
 
