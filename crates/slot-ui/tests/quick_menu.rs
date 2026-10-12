@@ -88,6 +88,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "GB / GBC Shader",
             "Color Correction",
             "GB Palettes",
+            "GBC Frame",
             "Game Title",
             "Clock"
         ]
@@ -188,6 +189,12 @@ fn the_values_read_as_the_menu_prints_them() {
             "Start",
             "Turbo A",
             "Turbo B",
+            "Berry",
+            "Grape",
+            "Kiwi",
+            "Dandelion",
+            "Teal",
+            "Atomic Purple",
             "Global",
             "Custom"
         ]

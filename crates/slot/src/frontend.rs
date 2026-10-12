@@ -91,6 +91,8 @@ struct Clocks {
     platform_tex: Option<TexId>,
     title: String,
     title_tex: Option<TexId>,
+    gb_frame: Option<slot_store::GbFrame>,
+    gb_frame_tex: Option<TexId>,
 }
 
 #[derive(Default)]
@@ -342,6 +344,7 @@ impl Frontend {
         compositor.set_frame_lift(self.session.app().frame_lift());
         compositor.set_frame_split(self.session.app().frame_split());
         compositor.set_game_source_rect(self.session.app().source_rect());
+        compositor.set_game_frame(self.session.app().game_frame());
         compositor.begin_frame();
         if self.draw_rebuild(compositor) {
             return;
@@ -706,6 +709,12 @@ fn sync_clock(app: &mut App, compositor: &mut Compositor, clocks: &mut Clocks) {
         app.set_shelf_clock_face(id, w);
     }
     slot_ui::set_title_above(app.cart_title() == CartTitle::Above);
+    if clocks.gb_frame != Some(app.gb_frame()) {
+        clocks.gb_frame = Some(app.gb_frame());
+        let face = slot_ui::gbc_frame_face(app.gb_frame())
+            .map(|f| upload(compositor, &mut clocks.gb_frame_tex, f));
+        app.set_gb_frame_face(face);
+    }
     let title_shown = match app.cart_title() {
         CartTitle::Off => String::new(),
         _ => app

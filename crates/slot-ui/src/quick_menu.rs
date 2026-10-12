@@ -23,6 +23,7 @@ pub enum QuickRow {
     GbPalettes,
     CartTitle,
     ClockFormat,
+    GbFrame,
     Controls,
     RemapA,
     RemapB,
@@ -50,7 +51,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 40] = [
+    pub const ALL: [QuickRow; 41] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -67,6 +68,7 @@ impl QuickRow {
         QuickRow::GbPalettes,
         QuickRow::CartTitle,
         QuickRow::ClockFormat,
+        QuickRow::GbFrame,
         QuickRow::Controls,
         QuickRow::RemapA,
         QuickRow::RemapB,
@@ -101,11 +103,12 @@ impl QuickRow {
         QuickRow::About,
     ];
 
-    pub const SCREEN: [QuickRow; 6] = [
+    pub const SCREEN: [QuickRow; 7] = [
         QuickRow::GbaShader,
         QuickRow::GbShader,
         QuickRow::ColourCorrection,
         QuickRow::GbPalettes,
+        QuickRow::GbFrame,
         QuickRow::CartTitle,
         QuickRow::ClockFormat,
     ];
@@ -176,6 +179,7 @@ impl QuickRow {
             | QuickRow::ColourCorrection
             | QuickRow::GbPalettes
             | QuickRow::CartTitle
+            | QuickRow::GbFrame
             | QuickRow::ClockFormat => &QuickRow::SCREEN,
             QuickRow::FastForward
             | QuickRow::FastForwardSound
@@ -252,6 +256,7 @@ impl QuickRow {
             QuickRow::GbPalettes => "GB Palettes",
             QuickRow::CartTitle => "Game Title",
             QuickRow::ClockFormat => "Clock",
+            QuickRow::GbFrame => "GBC Frame",
             QuickRow::Controls | QuickRow::GameControls => "Controls",
             QuickRow::RemapA | QuickRow::GameRemapA => "A Button",
             QuickRow::RemapB | QuickRow::GameRemapB => "B Button",
@@ -324,12 +329,18 @@ pub enum QuickValue {
     KeyStart,
     KeyX,
     KeyY,
+    Berry,
+    Grape,
+    Kiwi,
+    Dandelion,
+    Teal,
+    AtomicPurple,
     Global,
     Custom,
 }
 
 impl QuickValue {
-    pub const ALL: [QuickValue; 27] = [
+    pub const ALL: [QuickValue; 33] = [
         QuickValue::Speed2,
         QuickValue::Speed3,
         QuickValue::Speed4,
@@ -355,6 +366,12 @@ impl QuickValue {
         QuickValue::KeyStart,
         QuickValue::KeyX,
         QuickValue::KeyY,
+        QuickValue::Berry,
+        QuickValue::Grape,
+        QuickValue::Kiwi,
+        QuickValue::Dandelion,
+        QuickValue::Teal,
+        QuickValue::AtomicPurple,
         QuickValue::Global,
         QuickValue::Custom,
     ];
@@ -390,6 +407,12 @@ impl QuickValue {
             QuickValue::KeyStart => "Start",
             QuickValue::KeyX => "Turbo A",
             QuickValue::KeyY => "Turbo B",
+            QuickValue::Berry => "Berry",
+            QuickValue::Grape => "Grape",
+            QuickValue::Kiwi => "Kiwi",
+            QuickValue::Dandelion => "Dandelion",
+            QuickValue::Teal => "Teal",
+            QuickValue::AtomicPurple => "Atomic Purple",
             QuickValue::Global => "Global",
             QuickValue::Custom => "Custom",
         }

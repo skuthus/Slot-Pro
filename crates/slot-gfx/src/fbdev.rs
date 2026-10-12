@@ -1,4 +1,4 @@
-use std::ffi::{c_char, c_void, CString};
+use std::ffi::c_void;
 
 use libloading::Library;
 
@@ -34,7 +34,6 @@ type MakeCurrent = unsafe extern "C" fn(Ptr, Ptr, Ptr, Ptr) -> u32;
 type QuerySurface = unsafe extern "C" fn(Ptr, Ptr, i32, *mut i32) -> u32;
 type SwapBuffers = unsafe extern "C" fn(Ptr, Ptr) -> u32;
 type SwapInterval = unsafe extern "C" fn(Ptr, i32) -> u32;
-type GetProcAddress = unsafe extern "C" fn(*const c_char) -> *const c_void;
 type GetError = unsafe extern "C" fn() -> i32;
 type Terminate = unsafe extern "C" fn(Ptr) -> u32;
 
@@ -49,7 +48,6 @@ struct Egl {
     query_surface: QuerySurface,
     swap_buffers: SwapBuffers,
     swap_interval: SwapInterval,
-    get_proc_address: GetProcAddress,
     get_error: GetError,
     terminate: Terminate,
     _lib: Library,
@@ -131,7 +129,6 @@ impl Egl {
                 query_surface: sym(&lib, "eglQuerySurface")?,
                 swap_buffers: sym(&lib, "eglSwapBuffers")?,
                 swap_interval: sym(&lib, "eglSwapInterval")?,
-                get_proc_address: sym(&lib, "eglGetProcAddress")?,
                 get_error: sym(&lib, "eglGetError")?,
                 terminate: sym(&lib, "eglTerminate")?,
                 _lib: lib,
@@ -159,16 +156,26 @@ impl FbdevSurface {
     }
 
     fn open(hint: (u32, u32)) -> Result<Self, GfxError> {
+        let began = std::time::Instant::now();
+        let step = |what: &str| {
+            eprintln!(
+                "slot: gfx: {what} at {:.1} ms",
+                began.elapsed().as_secs_f64() * 1e3
+            )
+        };
         let egl = Egl::load()?;
         let gles = open("libGLESv2.so.2").or_else(|_| open("libGLESv2.so"))?;
+        step("libraries loaded");
         unsafe {
             let display = (egl.get_display)(std::ptr::null_mut());
             if display.is_null() {
                 return Err(egl.fail("eglGetDisplay"));
             }
+            step("display");
             if (egl.initialize)(display, std::ptr::null_mut(), std::ptr::null_mut()) == 0 {
                 return Err(egl.fail("eglInitialize"));
             }
+            step("initialized");
             if (egl.bind_api)(EGL_OPENGL_ES_API) == 0 {
                 return Err(egl.fail("eglBindAPI"));
             }
@@ -215,6 +222,7 @@ impl FbdevSurface {
             if surface.is_null() {
                 return Err(egl.fail("eglCreateWindowSurface"));
             }
+            step("window surface");
             let context_attrs = [EGL_CONTEXT_CLIENT_VERSION, 2, EGL_NONE];
             let context = (egl.create_context)(
                 display,
@@ -228,6 +236,7 @@ impl FbdevSurface {
             if (egl.make_current)(display, surface, surface, context) == 0 {
                 return Err(egl.fail("eglMakeCurrent"));
             }
+            step("context current");
             (egl.swap_interval)(display, 1);
             let size = query_size(&egl, display, surface).unwrap_or(hint);
             Ok(FbdevSurface {
@@ -278,13 +287,13 @@ impl Surface for FbdevSurface {
     }
 
     fn proc_address(&self, name: &str) -> *const c_void {
-        let Ok(c) = CString::new(name) else {
-            return std::ptr::null();
-        };
+        // Every call slot makes on GLES 2 is exported by libGLESv2 itself. Asking
+        // eglGetProcAddress for the hundreds of desktop-only names the bindings also
+        // list is what made loading them slow on the Mali driver, so those stay null.
         let exported = unsafe { self.gles.get::<unsafe extern "C" fn()>(name.as_bytes()) };
         match exported {
             Ok(f) => *f as *const c_void,
-            Err(_) => unsafe { (self.egl.get_proc_address)(c.as_ptr()) },
+            Err(_) => std::ptr::null(),
         }
     }
 }

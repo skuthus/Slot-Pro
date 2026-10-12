@@ -61,7 +61,121 @@ fn shader(kind: gl::types::GLenum, src: &str) -> Result<gl::types::GLuint, GfxEr
     }
 }
 
+static SHADER_CACHE: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+
+const NUM_PROGRAM_BINARY_FORMATS: gl::types::GLenum = 0x87FE;
+const PROGRAM_BINARY_LENGTH: gl::types::GLenum = 0x8741;
+
+pub fn set_shader_cache(dir: std::path::PathBuf) {
+    let _ = SHADER_CACHE.set(dir);
+}
+
 pub fn program(vert: &str, frag: &str) -> Result<gl::types::GLuint, GfxError> {
+    let cached = cache_path(vert, frag);
+    if let Some(p) = cached.as_deref().and_then(load_binary) {
+        return Ok(p);
+    }
+    let p = compile_program(vert, frag)?;
+    if let Some(path) = cached {
+        store_binary(&path, p);
+    }
+    Ok(p)
+}
+
+fn cache_path(vert: &str, frag: &str) -> Option<std::path::PathBuf> {
+    let dir = SHADER_CACHE.get()?;
+    if !gl::ProgramBinary::is_loaded() || !gl::GetProgramBinary::is_loaded() {
+        return None;
+    }
+    let mut formats = 0;
+    unsafe { gl::GetIntegerv(NUM_PROGRAM_BINARY_FORMATS, &mut formats) };
+    if formats <= 0 {
+        return None;
+    }
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    let driver = [gl::RENDERER, gl::VERSION].map(|name| unsafe {
+        let s = gl::GetString(name);
+        match s.is_null() {
+            true => Vec::new(),
+            false => std::ffi::CStr::from_ptr(s as *const std::ffi::c_char)
+                .to_bytes()
+                .to_vec(),
+        }
+    });
+    for part in [
+        &driver[0][..],
+        &driver[1][..],
+        vert.as_bytes(),
+        frag.as_bytes(),
+    ] {
+        for &b in part.iter().chain(&[0]) {
+            hash = (hash ^ b as u64).wrapping_mul(0x0100_0000_01b3);
+        }
+    }
+    Some(dir.join(format!("{hash:016x}.bin")))
+}
+
+fn load_binary(path: &std::path::Path) -> Option<gl::types::GLuint> {
+    let bytes = std::fs::read(path).ok()?;
+    let (format, binary) = bytes.split_first_chunk::<4>()?;
+    unsafe {
+        let p = gl::CreateProgram();
+        gl::ProgramBinary(
+            p,
+            u32::from_le_bytes(*format),
+            binary.as_ptr() as *const std::ffi::c_void,
+            binary.len() as gl::types::GLsizei,
+        );
+        let mut ok = 0;
+        gl::GetProgramiv(p, gl::LINK_STATUS, &mut ok);
+        if ok == 0 {
+            gl::DeleteProgram(p);
+            let _ = std::fs::remove_file(path);
+            eprintln!(
+                "slot: gfx: dropped a stale shader binary {}",
+                path.display()
+            );
+            return None;
+        }
+        eprintln!("slot: gfx: shader from {}", path.display());
+        Some(p)
+    }
+}
+
+fn store_binary(path: &std::path::Path, p: gl::types::GLuint) {
+    unsafe {
+        let mut len = 0;
+        gl::GetProgramiv(p, PROGRAM_BINARY_LENGTH, &mut len);
+        if len <= 0 {
+            return;
+        }
+        let mut binary = vec![0u8; len as usize];
+        let (mut written, mut format) = (0, 0);
+        gl::GetProgramBinary(
+            p,
+            len,
+            &mut written,
+            &mut format,
+            binary.as_mut_ptr() as *mut std::ffi::c_void,
+        );
+        if written <= 0 {
+            return;
+        }
+        binary.truncate(written as usize);
+        let mut bytes = format.to_le_bytes().to_vec();
+        bytes.extend(binary);
+        let stored = path
+            .parent()
+            .map_or(Ok(()), std::fs::create_dir_all)
+            .and_then(|_| std::fs::write(path, bytes));
+        match stored {
+            Ok(()) => eprintln!("slot: gfx: kept shader {}", path.display()),
+            Err(e) => eprintln!("slot: gfx: could not keep a shader binary: {e}"),
+        }
+    }
+}
+
+fn compile_program(vert: &str, frag: &str) -> Result<gl::types::GLuint, GfxError> {
     let vs = shader(gl::VERTEX_SHADER, vert)?;
     let fs = match shader(gl::FRAGMENT_SHADER, frag) {
         Ok(fs) => fs,

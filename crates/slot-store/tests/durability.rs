@@ -2,8 +2,8 @@ mod common;
 
 use common::tmp_root;
 use slot_store::{
-    atomic_write, read_slot_state, write_slot_state, CartTitle, ColourCorrection, GbPalette,
-    Layout, PadKey, Platform, Shader, SlotState, FF_SPEEDS, FF_SPEED_DEFAULT,
+    atomic_write, read_slot_state, write_slot_state, CartTitle, ColourCorrection, GbFrame,
+    GbPalette, Layout, PadKey, Platform, Shader, SlotState, FF_SPEEDS, FF_SPEED_DEFAULT,
 };
 use tempfile::tempdir;
 
@@ -214,6 +214,7 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             clock_24h: true,
             cart_title: CartTitle::Off,
             layout: Layout::default(),
+            gb_frame: GbFrame::Off,
         }
     );
 }
@@ -236,6 +237,7 @@ fn the_quick_menu_settings_round_trip_as_their_own_lines() {
         gb_palette: GbPalette::parse("GBC Dark Green →A").unwrap(),
         clock_24h: false,
         cart_title: CartTitle::Above,
+        gb_frame: GbFrame::Teal,
         layout: swapped_ab(),
         ..SlotState::default()
     };
@@ -257,6 +259,7 @@ fn the_quick_menu_settings_round_trip_as_their_own_lines() {
         "clock_24h=0",
         "cart_title=above",
         "layout=b,a,l,r,select,start,x,y",
+        "gb_frame=teal",
     ] {
         assert!(text.lines().any(|l| l == line), "no {line} in {text:?}");
     }
@@ -504,4 +507,25 @@ fn a_garbled_layout_line_falls_back_to_the_default_and_keeps_the_rest() {
     let back = read_slot_state(d.path());
     assert_eq!(back.layout, Layout::default());
     assert_eq!(back.brightness, 3);
+}
+
+#[test]
+fn every_gbc_frame_round_trips_and_a_stranger_reads_as_off() {
+    for frame in GbFrame::ALL {
+        let d = tmp_root();
+        let s = SlotState {
+            clock_set: true,
+            gb_frame: frame,
+            ..SlotState::default()
+        };
+        write_slot_state(d.path(), &s).unwrap();
+        assert_eq!(read_slot_state(d.path()), s, "{frame:?} did not come back");
+    }
+    let d = tmp_root();
+    std::fs::write(
+        d.path().join("Config/slot.state"),
+        "cart=Emerald\nbrightness=3\nblue_light=1\nvolume=40\nmuted=0\nclock_set=1\nutc_offset_min=0\ngb_frame=chartreuse\n",
+    )
+    .unwrap();
+    assert_eq!(read_slot_state(d.path()).gb_frame, GbFrame::Off);
 }

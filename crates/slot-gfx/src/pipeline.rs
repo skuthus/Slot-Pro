@@ -1,5 +1,5 @@
 use crate::lcd3x::ScreenEffect;
-use crate::power::{screen_brightness, screen_rect};
+use crate::power::{screen_brightness, screen_rect, screen_scale, screen_width};
 use crate::quad::Quad;
 use crate::shaders::{GAME_FRAG, RECT_VERT};
 use crate::surface::{GfxError, OUT_H, OUT_W};
@@ -27,6 +27,7 @@ pub struct GamePass {
     effect: ScreenEffect,
     power: f32,
     src: [f32; 4],
+    frame: Option<[f32; 4]>,
 }
 
 impl GamePass {
@@ -81,6 +82,7 @@ impl GamePass {
             effect: ScreenEffect::Lcd3x,
             power: 1.0,
             src: WHOLE_TEXTURE,
+            frame: None,
         })
     }
 
@@ -112,6 +114,10 @@ impl GamePass {
         unsafe { gl::DeleteTextures(1, &self.paper) };
         self.paper = tex;
         self.paper_size = size as f32;
+    }
+
+    pub fn set_frame(&mut self, frame: Option<[f32; 4]>) {
+        self.frame = frame;
     }
 
     pub fn set_source_rect(&mut self, rect: [f32; 4]) {
@@ -152,7 +158,13 @@ impl GamePass {
     }
 
     fn draw_source(&self, tex: gl::types::GLuint, quad: &Quad, src: [f32; 4]) {
-        let (x, y, w, h) = screen_rect(self.power);
+        let (x, y, w, h) = match self.frame {
+            Some([fx, fy, fw, fh]) => {
+                let (w, h) = (fw * screen_width(self.power), fh * screen_scale(self.power));
+                (fx + (fw - w) / 2.0, fy + (fh - h) / 2.0, w, h)
+            }
+            None => screen_rect(self.power),
+        };
         unsafe {
             gl::UseProgram(self.prog);
             gl::Uniform4f(self.u_rect, x, y, w, h);

@@ -39,9 +39,18 @@ pub struct Compositor {
 
 impl Compositor {
     pub fn new(surface: &dyn Surface) -> Result<Self, GfxError> {
+        let began = std::time::Instant::now();
+        let step = |what: &str| {
+            eprintln!(
+                "slot: gfx: {what} at {:.1} ms",
+                began.elapsed().as_secs_f64() * 1e3
+            )
+        };
         crate::gl::load(surface);
+        step("gl loaded");
         let blit = crate::shaders::program(BLIT_VERT, BLIT_FRAG)?;
         let bezel_prog = crate::shaders::program(BLIT_VERT, BEZEL_FRAG)?;
+        step("blit programs");
         let tex = crate::gl::texture(OUT_W, OUT_H, gl::NEAREST, gl::CLAMP_TO_EDGE, gl::RGBA, None);
         unsafe {
             let mut fbo = 0;
@@ -80,6 +89,10 @@ impl Compositor {
                 1.0,
             );
 
+            let game = GamePass::new()?;
+            step("game program");
+            let sprites = Sprites::new()?;
+            step("sprite program");
             Ok(Compositor {
                 fbo,
                 tex,
@@ -93,8 +106,8 @@ impl Compositor {
                 lift: 1.0,
                 screen: 0.0,
                 quad: Quad::new(),
-                game: GamePass::new()?,
-                sprites: Sprites::new()?,
+                game,
+                sprites,
                 bezel_prog,
                 u_bezel_gain,
                 u_bezel_alpha,
@@ -172,6 +185,10 @@ impl Compositor {
 
     pub fn set_screen_effect(&mut self, effect: crate::ScreenEffect) {
         self.game.set_effect(effect);
+    }
+
+    pub fn set_game_frame(&mut self, frame: Option<[f32; 4]>) {
+        self.game.set_frame(frame);
     }
 
     pub fn set_picture(&mut self, rect: [f32; 4]) {

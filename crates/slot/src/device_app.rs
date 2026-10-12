@@ -74,6 +74,7 @@ pub fn run() {
     let root = std::env::var_os("SLOT_ROOT")
         .map(PathBuf::from)
         .unwrap_or_else(|| PathBuf::from(CARD));
+    slot_gfx::set_shader_cache(root.join("System").join("Cache").join("shaders"));
     let mut surface = match FbdevSurface::new() {
         Ok(s) => s,
         Err(e) => {
@@ -82,6 +83,7 @@ pub fn run() {
         }
     };
     slot::boot_time::mark("surface");
+    slot::prefetch::warm_resume(&root);
     let mut compositor = match Compositor::new(&surface) {
         Ok(c) => c,
         Err(e) => {

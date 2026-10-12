@@ -82,7 +82,7 @@ pub fn read_resume(root: &Path, platform: Platform, core: Core, stem: &str) -> O
         .flatten()
 }
 
-fn sav_path(root: &Path, platform: Platform, stem: &str) -> PathBuf {
+pub(crate) fn sav_path(root: &Path, platform: Platform, stem: &str) -> PathBuf {
     crate::root::saves_dir(root)
         .join(platform.dir_name())
         .join(format!("{stem}.sav"))

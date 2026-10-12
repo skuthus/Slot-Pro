@@ -15,7 +15,7 @@ pub fn dylib_name(core: Core) -> String {
     )
 }
 
-fn candidates(root: &Path, core: Core) -> Vec<PathBuf> {
+pub(crate) fn candidates(root: &Path, core: Core) -> Vec<PathBuf> {
     if let Some(named) = std::env::var_os(CORE_ENV) {
         return vec![PathBuf::from(named)];
     }

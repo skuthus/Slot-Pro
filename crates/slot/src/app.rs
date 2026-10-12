@@ -9,8 +9,8 @@ use slot_power::{Battery, Charge, LedState, LidPolicy, Power};
 use slot_retro::LinkChannel;
 use slot_store::{
     format_stamp, read_game_layout, read_slot_state, scan, write_game_layout, write_slot_state,
-    Cart, CartTitle, ColourCorrection, Core, GbPalette, Layout, Platform, Shader, SlotState,
-    StateEntry, StateRing, Theme, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, FF_SPEEDS, VOLUME_MAX,
+    Cart, CartTitle, ColourCorrection, Core, GbFrame, GbPalette, Layout, Platform, Shader,
+    SlotState, StateEntry, StateRing, Theme, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, FF_SPEEDS, VOLUME_MAX,
 };
 use slot_ui::{
     board_from, board_zoom, draw_backdrop, draw_empty_slot, draw_footer, draw_slot_name,
@@ -319,6 +319,7 @@ pub struct App {
     shelf_ring: Option<StateRing>,
     start_state: Option<PathBuf>,
     game_layout: Option<Layout>,
+    gb_frame_face: Option<TexId>,
     pending: Option<(PendingUndo, Millis)>,
     legend_faces: Vec<TexId>,
     undo_face: Option<TexId>,
@@ -450,6 +451,7 @@ impl App {
             shelf_ring: None,
             start_state: None,
             game_layout: None,
+            gb_frame_face: None,
             pending: None,
             legend_faces: Vec::new(),
             undo_face: None,
@@ -683,6 +685,15 @@ impl App {
                 false => QuickValue::Hours12,
             }),
             QuickRow::Shader => Some(shader_value(self.screen_shader())),
+            QuickRow::GbFrame => Some(match self.state.gb_frame {
+                GbFrame::Off => QuickValue::Off,
+                GbFrame::Berry => QuickValue::Berry,
+                GbFrame::Grape => QuickValue::Grape,
+                GbFrame::Kiwi => QuickValue::Kiwi,
+                GbFrame::Dandelion => QuickValue::Dandelion,
+                GbFrame::Teal => QuickValue::Teal,
+                GbFrame::AtomicPurple => QuickValue::AtomicPurple,
+            }),
             QuickRow::GameLayout => Some(match self.game_layout {
                 Some(_) => QuickValue::Custom,
                 None => QuickValue::Global,
@@ -912,7 +923,10 @@ impl App {
     }
 
     pub fn source_rect(&self) -> [f32; 4] {
-        video_mode::source_rect(self.platform, self.video_mode)
+        match self.game_frame() {
+            Some(_) => video_mode::source_rect(self.platform, VideoMode::Stretch),
+            None => video_mode::source_rect(self.platform, self.video_mode),
+        }
     }
 
     fn slot_owns_the_shoulders(&self) -> bool {
@@ -1141,6 +1155,21 @@ impl App {
 
     pub fn slot_mode(&self) -> Option<SlotMode> {
         self.polaroids.as_ref().map(|p| p.mode)
+    }
+
+    pub fn gb_frame(&self) -> GbFrame {
+        self.state.gb_frame
+    }
+
+    pub fn set_gb_frame_face(&mut self, face: Option<TexId>) {
+        self.gb_frame_face = face;
+    }
+
+    pub fn game_frame(&self) -> Option<[f32; 4]> {
+        let framed = self.state.gb_frame != GbFrame::Off
+            && self.platform != Platform::Gba
+            && self.gb_frame_face.is_some();
+        framed.then_some(slot_ui::GB_FRAME_SCREEN)
     }
 
     pub fn clock_24h(&self) -> bool {
@@ -1495,6 +1524,7 @@ impl App {
             }
             QuickRow::CartTitle => s.cart_title = s.cart_title.step(right),
             QuickRow::ClockFormat => s.clock_24h = !s.clock_24h,
+            QuickRow::GbFrame => s.gb_frame = s.gb_frame.step(right),
             QuickRow::RemapA
             | QuickRow::RemapB
             | QuickRow::RemapL
@@ -2272,9 +2302,20 @@ impl App {
     }
 
     fn push_game(&self, out: &mut Vec<Draw>) {
-        if self.game_visible() {
-            out.push(Draw::Game);
+        if !self.game_visible() {
+            return;
         }
+        if let (Some(_), Some(tex)) = (self.game_frame(), self.gb_frame_face) {
+            out.push(Draw::Tex {
+                x: 0.0,
+                y: 0.0,
+                w: OUT_W as f32,
+                h: OUT_H as f32,
+                tex,
+                alpha: self.screen,
+            });
+        }
+        out.push(Draw::Game);
     }
 
     fn chrome(&self, stem: &str, dim: f32, out: &mut Vec<Draw>) {

@@ -336,6 +336,7 @@ fn screen_opens_a_page_of_its_own_and_b_comes_back_to_it() {
         QuickRow::GbShader,
         QuickRow::ColourCorrection,
         QuickRow::GbPalettes,
+        QuickRow::GbFrame,
         QuickRow::CartTitle,
         QuickRow::ClockFormat,
         QuickRow::GbaShader,
@@ -788,5 +789,24 @@ fn x_and_y_keep_their_turbo_until_remapped_and_can_send_select_and_start() {
     assert_eq!(
         read_slot_state(d.path()).layout.sends(PadKey::Y),
         PadKey::Start
+    );
+}
+
+#[test]
+fn the_gbc_frame_row_steps_through_the_shells_and_saves() {
+    let (d, mut a, _) = on_carousel();
+    open_at(&mut a, QuickRow::GbFrame);
+    assert_eq!(a.quick_value(QuickRow::GbFrame), Some(QuickValue::Off));
+    press(&mut a, Btn::Right);
+    assert_eq!(
+        read_slot_state(d.path()).gb_frame,
+        slot_store::GbFrame::Berry
+    );
+    assert_eq!(a.quick_value(QuickRow::GbFrame), Some(QuickValue::Berry));
+    press(&mut a, Btn::Left);
+    press(&mut a, Btn::Left);
+    assert_eq!(
+        read_slot_state(d.path()).gb_frame,
+        slot_store::GbFrame::AtomicPurple
     );
 }

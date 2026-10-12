@@ -79,3 +79,68 @@ fn read_through(path: &Path, turn: &AtomicU64, mine: u64) -> u64 {
     );
     total
 }
+
+pub fn warm_resume(root: &Path) {
+    let root = root.to_path_buf();
+    let _ = std::thread::Builder::new()
+        .name("slot-warm".into())
+        .spawn(move || {
+            let start = Instant::now();
+            let files = resume_files(&root);
+            let total: u64 = files.iter().map(|f| read_all(f)).sum();
+            if total > 0 {
+                eprintln!(
+                    "slot: warm: {total} bytes over {} files in {:.1} ms",
+                    files.len(),
+                    start.elapsed().as_secs_f64() * 1e3
+                );
+            }
+        });
+}
+
+fn resume_files(root: &Path) -> Vec<PathBuf> {
+    let state = slot_store::read_slot_state(root);
+    let (Some(stem), Some(platform)) = (state.cart, state.cart_platform) else {
+        return Vec::new();
+    };
+    if !state.clock_set {
+        return Vec::new();
+    }
+    let games = root.join("Games").join(platform.dir_name());
+    let Some(rom) = platform
+        .extensions()
+        .iter()
+        .map(|ext| games.join(format!("{stem}.{ext}")))
+        .find(|p| p.exists())
+    else {
+        return Vec::new();
+    };
+    let core = slot_store::core_for_platform(root, &stem, platform);
+    let mut files = vec![rom];
+    files.extend(
+        crate::core::candidates(root, core)
+            .into_iter()
+            .find(|p| p.exists()),
+    );
+    files.push(
+        root.join("States")
+            .join(platform.dir_name())
+            .join(core.as_str())
+            .join(&stem)
+            .join("resume.state"),
+    );
+    files.push(crate::persist::sav_path(root, platform, &stem));
+    files
+}
+
+fn read_all(path: &Path) -> u64 {
+    let Ok(mut file) = std::fs::File::open(path) else {
+        return 0;
+    };
+    let mut buf = vec![0u8; CHUNK];
+    let mut total = 0u64;
+    while let Ok(n @ 1..) = file.read(&mut buf) {
+        total += n as u64;
+    }
+    total
+}

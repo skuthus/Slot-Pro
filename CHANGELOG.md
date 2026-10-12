@@ -11,6 +11,8 @@
 - Tap MENU in game to pause: Resume, Save State, Load State, Shader, Controls and Eject Game. Double-tap MENU still jumps straight to loading.
 - SELECT + R1 / L1 save to and load from the active slot, and say which slot.
 - Buttons can be remapped for every game (Controls on the carousel menu) or per game (Controls in the in-game menu). X and Y can send any button or keep their turbo.
+- GBC Frame (Screen → GBC Frame): GB and GBC games play inside a Game Boy Color shell in Berry, Grape, Kiwi, Dandelion, Teal or Atomic Purple, at full size.
+- Boots faster: compiled shaders are kept on the card in `System/Cache/shaders`, and a resumed game's files are read while the screen comes up.
 
 ## [1.6.0](https://github.com/BrandonKowalski/slot/releases/tag/v1.6.0)
 
