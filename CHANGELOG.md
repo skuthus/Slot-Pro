@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.0 (2026-10-13)
 
 Based on slot 1.6.0. For earlier history, see the
 [slot changelog](https://github.com/BrandonKowalski/slot/blob/main/CHANGELOG.md).
