@@ -94,6 +94,7 @@ struct Shared {
     stop: AtomicBool,
     volume: AtomicU8,
     fast_steps: AtomicU32,
+    run_ahead: AtomicU8,
     ff_sound: AtomicBool,
     published: AtomicU64,
     resume_refused: AtomicBool,
@@ -161,6 +162,7 @@ impl EmuHandle {
             stop: AtomicBool::new(false),
             volume: AtomicU8::new(100),
             fast_steps: AtomicU32::new(FAST_STEPS),
+            run_ahead: AtomicU8::new(0),
             ff_sound: AtomicBool::new(false),
             published: AtomicU64::new(0),
             resume_refused: AtomicBool::new(false),
@@ -334,6 +336,10 @@ impl EmuHandle {
         self.shared
             .fast_steps
             .store(steps.clamp(1, FAST_STEPS_MAX), Ordering::Relaxed);
+    }
+
+    pub fn set_run_ahead(&self, frames: u8) {
+        self.shared.run_ahead.store(frames, Ordering::Relaxed);
     }
 
     pub fn fast_steps(&self) -> u32 {
@@ -557,6 +563,7 @@ impl Worker {
         let mut cable_said = Instant::now();
         let mut cable_core = Duration::ZERO;
         let mut cable_wait = Duration::ZERO;
+        let mut held_audio: Option<Vec<i16>> = None;
         let mut ff = (0u32, 0u32, Duration::ZERO, Instant::now());
         while !self.shared.stop.load(Ordering::Relaxed) {
             for cmd in self.cmds.try_iter() {
@@ -704,7 +711,16 @@ impl Worker {
                                 }
                             }
                         }
-                        None => core.run_frame(input),
+                        None => {
+                            let ahead = self.shared.run_ahead.load(Ordering::Relaxed);
+                            match ahead > 0 && speed == Speed::Normal {
+                                true => {
+                                    let real = run_ahead(core.as_mut(), input, ahead, last);
+                                    held_audio.get_or_insert_with(Vec::new).extend(real);
+                                }
+                                false => core.run_frame(input),
+                            }
+                        }
                     }
                     let took = frame_began.elapsed();
                     if last {
@@ -778,7 +794,13 @@ impl Worker {
                     }
                 }
 
-                let audio = core.take_audio();
+                let audio = match held_audio.take() {
+                    Some(real) => {
+                        let _ = core.take_audio();
+                        real
+                    }
+                    None => core.take_audio(),
+                };
                 if speed == Speed::Normal || ff_sound {
                     let target = drc_target(ring.capacity_frames());
                     let queued = ring.queued_frames();
@@ -1106,6 +1128,31 @@ fn drain_transport(transport: &mut dyn LinkChannel, link: &Link, cap: u32) {
         };
         link.push_inbound(packet);
     }
+}
+
+/// Runs one real frame, then `ahead` frames past it with the same input to show where the game
+/// is about to be, and puts the core back on the real frame. Returns the real frame's audio; what
+/// the frames ahead played is thrown away.
+fn run_ahead(core: &mut dyn RetroCore, input: ButtonMask, ahead: u8, shown: bool) -> Vec<i16> {
+    core.set_frame_skip(true);
+    core.run_frame(input);
+    let real = core.take_audio();
+    let state = match core.serialize() {
+        Ok(state) => state,
+        Err(e) => {
+            eprintln!("slot: run-ahead: {e}");
+            return real;
+        }
+    };
+    for n in 1..=ahead {
+        core.set_frame_skip(!(shown && n == ahead));
+        core.run_frame(input);
+    }
+    let _ = core.take_audio();
+    if let Err(e) = core.unserialize(&state) {
+        eprintln!("slot: run-ahead: {e}");
+    }
+    real
 }
 
 #[cfg(test)]

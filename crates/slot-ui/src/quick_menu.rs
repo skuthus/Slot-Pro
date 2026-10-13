@@ -24,8 +24,10 @@ pub enum QuickRow {
     CartTitle,
     ClockFormat,
     GbFrame,
+    LcdGhosting,
     Analog,
     StartFavorites,
+    RunAhead,
     Controls,
     RemapA,
     RemapB,
@@ -53,7 +55,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 43] = [
+    pub const ALL: [QuickRow; 45] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -71,8 +73,10 @@ impl QuickRow {
         QuickRow::CartTitle,
         QuickRow::ClockFormat,
         QuickRow::GbFrame,
+        QuickRow::LcdGhosting,
         QuickRow::Analog,
         QuickRow::StartFavorites,
+        QuickRow::RunAhead,
         QuickRow::Controls,
         QuickRow::RemapA,
         QuickRow::RemapB,
@@ -107,9 +111,10 @@ impl QuickRow {
         QuickRow::About,
     ];
 
-    pub const SCREEN: [QuickRow; 7] = [
+    pub const SCREEN: [QuickRow; 8] = [
         QuickRow::GbaShader,
         QuickRow::GbShader,
+        QuickRow::LcdGhosting,
         QuickRow::ColourCorrection,
         QuickRow::GbPalettes,
         QuickRow::GbFrame,
@@ -117,9 +122,10 @@ impl QuickRow {
         QuickRow::ClockFormat,
     ];
 
-    pub const GAME: [QuickRow; 8] = [
+    pub const GAME: [QuickRow; 9] = [
         QuickRow::Analog,
         QuickRow::StartFavorites,
+        QuickRow::RunAhead,
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Rewind,
@@ -186,6 +192,7 @@ impl QuickRow {
             | QuickRow::GbPalettes
             | QuickRow::CartTitle
             | QuickRow::GbFrame
+            | QuickRow::LcdGhosting
             | QuickRow::ClockFormat => &QuickRow::SCREEN,
             QuickRow::FastForward
             | QuickRow::FastForwardSound
@@ -194,7 +201,8 @@ impl QuickRow {
             | QuickRow::Rumble
             | QuickRow::EjectSave
             | QuickRow::Analog
-            | QuickRow::StartFavorites => &QuickRow::GAME,
+            | QuickRow::StartFavorites
+            | QuickRow::RunAhead => &QuickRow::GAME,
             QuickRow::RemapA
             | QuickRow::RemapB
             | QuickRow::RemapL
@@ -265,8 +273,10 @@ impl QuickRow {
             QuickRow::CartTitle => "Game Title",
             QuickRow::ClockFormat => "Clock",
             QuickRow::GbFrame => "GBC Frame",
+            QuickRow::LcdGhosting => "LCD Ghosting",
             QuickRow::Analog => "Analog Mode",
             QuickRow::StartFavorites => "Start on Favorites",
+            QuickRow::RunAhead => "Run-Ahead",
             QuickRow::Controls | QuickRow::GameControls => "Controls",
             QuickRow::RemapA | QuickRow::GameRemapA => "A Button",
             QuickRow::RemapB | QuickRow::GameRemapB => "B Button",
@@ -324,6 +334,9 @@ pub enum QuickValue {
     Grid,
     Dot,
     Simpletex,
+    GbcLcd,
+    Frames1,
+    Frames2,
     GbaOnly,
     GbAndGbc,
     All,
@@ -350,7 +363,7 @@ pub enum QuickValue {
 }
 
 impl QuickValue {
-    pub const ALL: [QuickValue; 33] = [
+    pub const ALL: [QuickValue; 36] = [
         QuickValue::Speed2,
         QuickValue::Speed3,
         QuickValue::Speed4,
@@ -361,6 +374,9 @@ impl QuickValue {
         QuickValue::Grid,
         QuickValue::Dot,
         QuickValue::Simpletex,
+        QuickValue::GbcLcd,
+        QuickValue::Frames1,
+        QuickValue::Frames2,
         QuickValue::GbaOnly,
         QuickValue::GbAndGbc,
         QuickValue::All,
@@ -402,6 +418,9 @@ impl QuickValue {
             QuickValue::Grid => "Grid",
             QuickValue::Dot => "Dot",
             QuickValue::Simpletex => "Simpletex",
+            QuickValue::GbcLcd => "Authentic GBC",
+            QuickValue::Frames1 => "1 Frame",
+            QuickValue::Frames2 => "2 Frames",
             QuickValue::GbaOnly => "GBA Only",
             QuickValue::GbAndGbc => "GB / GBC",
             QuickValue::All => "All",

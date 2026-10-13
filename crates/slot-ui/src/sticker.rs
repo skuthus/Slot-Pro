@@ -37,8 +37,8 @@ pub struct StickerFields<'a> {
 }
 
 pub const CREDITS: [&str; 10] = [
-    "EMULATION POWERED BY MGBA",
-    "AND GPSP. UNDERLYING OS IS",
+    "EMULATION POWERED BY MGBA,",
+    "GPSP, GAMBATTE. THE OS IS",
     "BASEOS BY PVAIBHAV. TYPE IS",
     "OPEN SANS AND NERD FONTS",
     "SYMBOLS BY RYAN L MCINTYRE.",

@@ -16,6 +16,8 @@ pub const FF_SPEEDS: [u8; 4] = [2, 3, 4, 6];
 
 pub const FF_SPEED_DEFAULT: u8 = 6;
 
+pub const RUN_AHEAD_MAX: u8 = 2;
+
 #[derive(Clone, PartialEq, Eq, Debug)]
 pub struct SlotState {
     pub cart: Option<String>,
@@ -45,6 +47,8 @@ pub struct SlotState {
     pub gb_frame: GbFrame,
     pub analog: bool,
     pub start_favorites: bool,
+    pub run_ahead: u8,
+    pub lcd_ghosting: bool,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
@@ -177,11 +181,12 @@ pub enum Shader {
     Grid,
     Dot,
     Simpletex,
+    Gbc,
 }
 
 impl Shader {
     pub const GBA: [Shader; 4] = [Shader::Off, Shader::Lcd3x, Shader::Grid, Shader::Dot];
-    pub const GB: [Shader; 3] = [Shader::Off, Shader::Grid, Shader::Simpletex];
+    pub const GB: [Shader; 4] = [Shader::Off, Shader::Grid, Shader::Simpletex, Shader::Gbc];
 
     pub fn name(self) -> &'static str {
         match self {
@@ -190,6 +195,7 @@ impl Shader {
             Shader::Grid => "grid",
             Shader::Dot => "dot",
             Shader::Simpletex => "simpletex",
+            Shader::Gbc => "gbc",
         }
     }
 
@@ -200,6 +206,7 @@ impl Shader {
             Shader::Grid,
             Shader::Dot,
             Shader::Simpletex,
+            Shader::Gbc,
         ]
         .into_iter()
         .find(|s| s.name() == name)
@@ -240,6 +247,8 @@ impl Default for SlotState {
             gb_frame: GbFrame::Off,
             analog: false,
             start_favorites: false,
+            run_ahead: 0,
+            lcd_ghosting: true,
         }
     }
 }
@@ -258,7 +267,7 @@ pub fn read_slot_state(root: &Path) -> SlotState {
 
 pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     let text = format!(
-        "cart={}\ncart_platform={}\nbrightness={}\nblue_light={}\nvolume={}\nvolume_hp={}\nmuted={}\nmuted_hp={}\nclock_set={}\nutc_offset_min={}\nrumble={}\nff_speed={}\nff_sound={}\ncolour_correction={}\nshader_gba={}\nshader_gb={}\neject_save={}\nturbo={}\nrewind={}\ngb_palettes={}\ngb_palette={}\nclock_24h={}\ncart_title={}\nlayout={}\ngb_frame={}\nanalog={}\nstart_favorites={}\n",
+        "cart={}\ncart_platform={}\nbrightness={}\nblue_light={}\nvolume={}\nvolume_hp={}\nmuted={}\nmuted_hp={}\nclock_set={}\nutc_offset_min={}\nrumble={}\nff_speed={}\nff_sound={}\ncolour_correction={}\nshader_gba={}\nshader_gb={}\neject_save={}\nturbo={}\nrewind={}\ngb_palettes={}\ngb_palette={}\nclock_24h={}\ncart_title={}\nlayout={}\ngb_frame={}\nanalog={}\nstart_favorites={}\nrun_ahead={}\nlcd_ghosting={}\n",
         s.cart.as_deref().unwrap_or(""),
         s.cart_platform.map_or(String::new(), platform_key),
         s.brightness,
@@ -285,7 +294,9 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
         s.layout.name(),
         s.gb_frame.name(),
         s.analog as u8,
-        s.start_favorites as u8
+        s.start_favorites as u8,
+        s.run_ahead,
+        s.lcd_ghosting as u8
     );
     atomic_write(&state_path(root), text.as_bytes())
 }
@@ -318,6 +329,8 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut gb_frame = None;
     let mut analog = None;
     let mut start_favorites = None;
+    let mut run_ahead = None;
+    let mut lcd_ghosting = None;
     for line in text.lines().filter(|l| !l.is_empty()) {
         let Some((key, value)) = line.split_once('=') else {
             continue;
@@ -349,6 +362,8 @@ fn parse(text: &str) -> Option<SlotState> {
             "gb_frame" => gb_frame = GbFrame::parse(value),
             "analog" => analog = flag(value),
             "start_favorites" => start_favorites = flag(value),
+            "run_ahead" => run_ahead = level(value, RUN_AHEAD_MAX),
+            "lcd_ghosting" => lcd_ghosting = flag(value),
             "shader_gb" => shader_gb = Shader::parse(value).filter(|s| Shader::GB.contains(s)),
             _ => {}
         }
@@ -383,6 +398,8 @@ fn parse(text: &str) -> Option<SlotState> {
         gb_frame: gb_frame.unwrap_or(fallback.gb_frame),
         analog: analog.unwrap_or(fallback.analog),
         start_favorites: start_favorites.unwrap_or(fallback.start_favorites),
+        run_ahead: run_ahead.unwrap_or(fallback.run_ahead),
+        lcd_ghosting: lcd_ghosting.unwrap_or(fallback.lcd_ghosting),
     })
 }
 

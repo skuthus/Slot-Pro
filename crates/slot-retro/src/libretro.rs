@@ -657,8 +657,9 @@ impl RetroCore for LibretroCore {
         ram[..n].copy_from_slice(&data[..n]);
         let rest = &data[n..];
         if let Some(rtc) = self.memory_mut(MEMORY_RTC) {
-            let m = rtc.len().min(rest.len());
-            rtc[..m].copy_from_slice(&rest[..m]);
+            let clock = rtc_for(rest, rtc.len());
+            let m = rtc.len().min(clock.len());
+            rtc[..m].copy_from_slice(&clock[..m]);
         }
         Ok(())
     }
@@ -689,6 +690,55 @@ impl RetroCore for LibretroCore {
         let _a = Active::bind(&mut self.host);
         unsafe { halt_link() };
     }
+}
+
+/// mGBA keeps a Game Boy cartridge clock as 48 bytes (live and latched registers, then the unix
+/// time they were taken at); Gambatte keeps 8 (the unix time the clock read zero). A `.sav`
+/// written by one core is turned into the other's form here, so switching cores keeps the time.
+const MGBA_RTC: usize = 48;
+const GAMBATTE_RTC: usize = 8;
+
+pub fn rtc_for(saved: &[u8], want: usize) -> Vec<u8> {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_or(0, |d| d.as_secs());
+    match (saved.len(), want) {
+        (MGBA_RTC.., GAMBATTE_RTC) => mgba_to_base(saved).to_le_bytes().to_vec(),
+        (GAMBATTE_RTC, MGBA_RTC) => {
+            let base = u64::from_le_bytes(saved[..8].try_into().unwrap_or_default());
+            base_to_mgba(base, now)
+        }
+        _ => saved.to_vec(),
+    }
+}
+
+fn mgba_to_base(rtc: &[u8]) -> u64 {
+    let word = |i: usize| u32::from_le_bytes(rtc[i * 4..i * 4 + 4].try_into().unwrap_or_default());
+    let (sec, min, hour) = (word(0) as u64, word(1) as u64, word(2) as u64);
+    let days = (word(3) as u64 & 0xff) | ((word(4) as u64 & 1) << 8);
+    let taken = u64::from_le_bytes(rtc[40..48].try_into().unwrap_or_default());
+    let elapsed = ((days * 24 + hour) * 60 + min) * 60 + sec;
+    taken.saturating_sub(elapsed)
+}
+
+fn base_to_mgba(base: u64, now: u64) -> Vec<u8> {
+    let elapsed = now.saturating_sub(base);
+    let days = elapsed / 86_400;
+    let registers = [
+        (elapsed % 60) as u32,
+        (elapsed / 60 % 60) as u32,
+        (elapsed / 3600 % 24) as u32,
+        (days & 0xff) as u32,
+        ((days >> 8) & 1) as u32 | if days > 511 { 0x80 } else { 0 },
+    ];
+    let mut out = Vec::with_capacity(MGBA_RTC);
+    for _ in 0..2 {
+        for r in registers {
+            out.extend_from_slice(&r.to_le_bytes());
+        }
+    }
+    out.extend_from_slice(&now.to_le_bytes());
+    out
 }
 
 #[cfg(test)]

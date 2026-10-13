@@ -86,6 +86,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
         [
             "GBA Shader",
             "GB / GBC Shader",
+            "LCD Ghosting",
             "Color Correction",
             "GB Palettes",
             "GBC Frame",
@@ -98,6 +99,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
         [
             "Analog Mode",
             "Start on Favorites",
+            "Run-Ahead",
             "Fast Forward",
             "Fast Forward Sound",
             "Rewind",
@@ -176,6 +178,9 @@ fn the_values_read_as_the_menu_prints_them() {
             "Grid",
             "Dot",
             "Simpletex",
+            "Authentic GBC",
+            "1 Frame",
+            "2 Frames",
             "GBA Only",
             "GB / GBC",
             "All",

@@ -11,15 +11,15 @@ use slot_store::{
     format_stamp, read_favorites, read_game_layout, read_slot_state, scan, write_favorites,
     write_game_layout, write_slot_state, Cart, CartTitle, ColourCorrection, Core, GbFrame,
     GbPalette, Layout, Platform, Shader, SlotState, StateEntry, StateRing, Theme, BLUE_LIGHT_MAX,
-    BRIGHTNESS_MAX, FF_SPEEDS, VOLUME_MAX,
+    BRIGHTNESS_MAX, FF_SPEEDS, RUN_AHEAD_MAX, VOLUME_MAX,
 };
 use slot_ui::{
     board_from, board_zoom, draw_backdrop, draw_empty_slot, draw_footer, draw_slot_name,
-    draw_sticker, ease, grown, lid_at, lid_from, lift_of, on_board, shelf_cart_at, ClockPicker,
-    Draw, FfState, GbShell, Hud, HudKind, Icon, LinkBadge, Millis, Placed, Polaroids, PowerChoice,
-    QuickMenu, QuickMenuFaces, QuickRow, QuickValue, Refusal, Shelf, SlotChrome, SlotMode, TexId,
-    Toast, BOARD_W, BOARD_X, CART_W, CHIP_H, CHIP_U, CHIP_V, CHIP_W, HINT_EDGE, HINT_H, HOP_LIFT,
-    SHADOW_H, SHADOW_W, SOCKET_H, SOCKET_U, SOCKET_V, SOCKET_W, TURN_PAD,
+    draw_sticker, ease, grown, lid_at, lift_of, on_board, ClockPicker, Draw, FfState, GbShell, Hud,
+    HudKind, Icon, LinkBadge, Millis, Placed, Polaroids, PowerChoice, QuickMenu, QuickMenuFaces,
+    QuickRow, QuickValue, Refusal, Shelf, SlotChrome, SlotMode, TexId, Toast, BOARD_W, BOARD_X,
+    CHIP_H, CHIP_U, CHIP_V, CHIP_W, HINT_EDGE, HINT_H, HOP_LIFT, SHADOW_H, SHADOW_W, SOCKET_H,
+    SOCKET_U, SOCKET_V, SOCKET_W, TURN_PAD,
 };
 
 use crate::audio::Sfx;
@@ -308,6 +308,7 @@ pub struct App {
     snapshot: Option<Box<dyn Snapshot>>,
     core: Core,
     colour_pending: Option<bool>,
+    blend_pending: Option<bool>,
     palette_live: bool,
     palette_pending: Option<GbPalette>,
     link_player: Option<u8>,
@@ -462,6 +463,7 @@ impl App {
             snapshot: None,
             core: Core::default(),
             colour_pending: None,
+            blend_pending: None,
             palette_live: false,
             palette_pending: None,
             link_player: None,
@@ -719,7 +721,13 @@ impl App {
             }),
             QuickRow::Shader => Some(shader_value(self.screen_shader())),
             QuickRow::Analog => Some(QuickValue::flag(self.state.analog)),
+            QuickRow::LcdGhosting => Some(QuickValue::flag(self.state.lcd_ghosting)),
             QuickRow::StartFavorites => Some(QuickValue::flag(self.state.start_favorites)),
+            QuickRow::RunAhead => Some(match self.state.run_ahead {
+                0 => QuickValue::Off,
+                1 => QuickValue::Frames1,
+                _ => QuickValue::Frames2,
+            }),
             QuickRow::GbFrame => Some(match self.state.gb_frame {
                 GbFrame::Off => QuickValue::Off,
                 GbFrame::Berry => QuickValue::Berry,
@@ -1123,6 +1131,10 @@ impl App {
         self.state.rewind && !self.state.analog
     }
 
+    pub fn run_ahead(&self) -> u8 {
+        self.state.run_ahead
+    }
+
     pub fn analog(&self) -> bool {
         self.state.analog
     }
@@ -1250,7 +1262,31 @@ impl App {
     }
 
     pub fn colour_correction(&self, platform: Platform) -> bool {
-        self.state.colour_correction.applies_to(platform)
+        self.state.colour_correction.applies_to(platform) && !self.authentic_gbc(platform)
+    }
+
+    /// The Authentic GBC shader does the screen's colours itself and wants the LCD's slow
+    /// pixels, so the core's own correction steps aside and its frame blending comes on.
+    pub fn authentic_gbc(&self, platform: Platform) -> bool {
+        platform != Platform::Gba && self.state.shader_gb == Shader::Gbc
+    }
+
+    fn look_changed(&mut self) {
+        self.colour_pending = Some(self.colour_correction(self.platform));
+        self.blend_pending = Some(self.ghosting(self.platform));
+    }
+
+    /// LCD ghosting comes with the Authentic GBC shader unless it is switched off.
+    pub fn ghosting(&self, platform: Platform) -> bool {
+        self.authentic_gbc(platform) && self.state.lcd_ghosting
+    }
+
+    pub fn ghosting_now(&self) -> bool {
+        self.ghosting(self.platform)
+    }
+
+    pub fn take_blend(&mut self) -> Option<bool> {
+        self.blend_pending.take()
     }
 
     pub fn colour_mode(&self) -> ColourCorrection {
@@ -1656,13 +1692,27 @@ impl App {
             QuickRow::FastForwardSound => s.ff_sound = !s.ff_sound,
             QuickRow::ColourCorrection => {
                 s.colour_correction = s.colour_correction.step(right);
-                self.colour_pending = Some(s.colour_correction.applies_to(self.platform));
+                self.colour_pending = Some(
+                    s.colour_correction.applies_to(self.platform)
+                        && !self.authentic_gbc(self.platform),
+                );
             }
             QuickRow::CartTitle => s.cart_title = s.cart_title.step(right),
             QuickRow::ClockFormat => s.clock_24h = !s.clock_24h,
             QuickRow::Analog => s.analog = !s.analog,
             QuickRow::StartFavorites => s.start_favorites = !s.start_favorites,
+            QuickRow::RunAhead => {
+                let n = RUN_AHEAD_MAX + 1;
+                s.run_ahead = match right {
+                    true => (s.run_ahead + 1) % n,
+                    false => (s.run_ahead + n - 1) % n,
+                };
+            }
             QuickRow::GbFrame => s.gb_frame = s.gb_frame.step(right),
+            QuickRow::LcdGhosting => {
+                s.lcd_ghosting = !s.lcd_ghosting;
+                self.look_changed();
+            }
             QuickRow::RemapA
             | QuickRow::RemapB
             | QuickRow::RemapL
@@ -1688,6 +1738,7 @@ impl App {
                     return;
                 }
                 s.shader_gb = to;
+                self.look_changed();
             }
             QuickRow::Rumble => s.rumble = !s.rumble,
             QuickRow::EjectSave => s.eject_save = !s.eject_save,
@@ -1713,12 +1764,15 @@ impl App {
             Platform::Gb | Platform::Gbc => (&mut self.state.shader_gb, &Shader::GB[..]),
         };
         *shader = shader.step(choices, right);
-        let said = match *shader {
+        let shader = *shader;
+        self.look_changed();
+        let said = match shader {
             Shader::Off => Toast::ShaderOff,
             Shader::Lcd3x => Toast::ShaderLcd3x,
             Shader::Grid => Toast::ShaderGrid,
             Shader::Dot => Toast::ShaderDot,
             Shader::Simpletex => Toast::ShaderSimpletex,
+            Shader::Gbc => Toast::ShaderGbc,
         };
         self.persist();
         self.hud.toast(said, self.now());
@@ -2580,7 +2634,9 @@ impl App {
         let progress = picker.openness(now);
         let lift = lift_of(progress);
         let (rest, scale) = self.shelf().selected_at();
-        let shelf = shelf_cart_at(rest, scale);
+        let platform = self.selected_platform().unwrap_or(Platform::Gba);
+        let shelf = slot_ui::shelf_cart_for(rest, scale, platform);
+        let lid_rest = slot_ui::lid_rest_for(platform);
         let board = board_from(shelf, progress);
         let zoom = board_zoom(board);
         let ready = self.core_faces_ready();
@@ -2596,7 +2652,10 @@ impl App {
                     alpha: 1.0,
                 });
             }
-            for (i, tex) in self.core_socket_faces.iter().copied().enumerate() {
+            for (i, core) in picker.pair().into_iter().enumerate() {
+                let Some(tex) = self.core_socket_faces.get(core.index()).copied() else {
+                    continue;
+                };
                 let (x, y) = on_board(board, SOCKET_U[i], SOCKET_V);
                 out.push(Draw::Tex {
                     x: x.round(),
@@ -2650,7 +2709,7 @@ impl App {
         }
 
         if let Some(tex) = self.core_chip_shadow_face {
-            let (lid, _) = lid_from(shelf, progress);
+            let (lid, _) = slot_ui::lid_from_to(shelf, progress, lid_rest);
             let k = lid.w / lid_at(1.0).0.w;
             let (w, h) = (LID_SHADOW_W * k, LID_SHADOW_H * k);
             out.push(Draw::Tex {
@@ -2665,8 +2724,9 @@ impl App {
 
         if ready {
             if let Some(tex) = self.core_lid_face {
-                let (lid, turn) = lid_from(shelf, progress);
-                let at = grown(lid, TURN_PAD as f32 * lid.w / CART_W as f32);
+                let (lid, turn) = slot_ui::lid_from_to(shelf, progress, lid_rest);
+                let cart_w = slot_ui::cart_box(platform).0 as f32;
+                let at = grown(lid, TURN_PAD as f32 * lid.w / cart_w);
                 out.push(Draw::Turned {
                     x: at.x,
                     y: at.y,
@@ -2681,7 +2741,7 @@ impl App {
             .selected_stem()
             .and_then(|stem| self.shelf().find(stem))
         {
-            let (lid, turn) = lid_from(shelf, progress);
+            let (lid, turn) = slot_ui::lid_from_to(shelf, progress, lid_rest);
             out.push(Draw::Turned {
                 x: lid.x,
                 y: lid.y,
@@ -3006,12 +3066,10 @@ impl App {
         let Some(cart) = self.shelf().carts.get(self.shelf().index) else {
             return;
         };
-        if cart.platform != Platform::Gba {
-            return;
-        }
-        let seat = slot_store::core_for(&root, &cart.stem);
+        let pair = Core::pair(cart.platform);
+        let seat = slot_store::core_for_platform(&root, &cart.stem, cart.platform);
         let now = self.now();
-        let mut picker = CorePicker::open(seat, now);
+        let mut picker = CorePicker::open_for(seat, pair, now);
         if self.core_faces_ready() {
             picker.start(now);
         }
@@ -3937,6 +3995,7 @@ fn shader_value(shader: Shader) -> QuickValue {
         Shader::Grid => QuickValue::Grid,
         Shader::Dot => QuickValue::Dot,
         Shader::Simpletex => QuickValue::Simpletex,
+        Shader::Gbc => QuickValue::GbcLcd,
     }
 }
 

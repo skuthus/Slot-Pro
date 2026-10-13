@@ -9,7 +9,7 @@ use slot::frontend::Frontend;
 use slot_gfx::{Compositor, HeadlessSurface, OUT_H, OUT_W};
 use slot_input::{Btn, InputSource, Millis, RawEvent};
 use slot_power::SimPlatform;
-use slot_ui::{QuickRow, QUICK_PITCH, QUICK_TOP};
+use slot_ui::{quick_row_top, QuickRow, QUICK_PITCH, QUICK_TOP};
 
 struct Script(VecDeque<Vec<RawEvent>>);
 
@@ -32,7 +32,11 @@ fn at(px: &[u8], x: usize, y: usize) -> [u8; 3] {
 }
 
 fn inked(px: &[u8], xs: std::ops::Range<usize>, top: usize) -> Vec<usize> {
-    xs.filter(|&x| (top + 8..top + 44).any(|y| at(px, x, y)[0] > 0x80))
+    inked_between(px, xs, top + 8..top + 44)
+}
+
+fn inked_between(px: &[u8], xs: std::ops::Range<usize>, ys: std::ops::Range<usize>) -> Vec<usize> {
+    xs.filter(|&x| ys.clone().any(|y| at(px, x, y)[0] > 0x80))
         .collect()
 }
 
@@ -202,22 +206,22 @@ fn the_screen_page_sets_gb_palettes_in_line_with_the_rows_above() {
     }
     let px = composed(&mut f, &mut c, "screen-page");
 
-    let page_top = (OUT_H as f32 - QUICK_PITCH * QuickRow::SCREEN.len() as f32) / 2.0;
-    let top = (page_top + QUICK_PITCH * QuickRow::GbPalettes.position() as f32) as usize;
+    // The screen page has more rows than fit at the full pitch, so it sets them tighter.
+    let top = quick_row_top(QuickRow::GbPalettes) as usize;
     assert_eq!(
         at(&px, 1, top + 26),
         [0x4d, 0x4d, 0x57],
         "the bar is not on GB Palettes"
     );
     for row in QuickRow::SCREEN {
-        let top = (page_top + QUICK_PITCH * row.position() as f32) as usize;
-        let label = inked(&px, 0..360, top);
+        let top = quick_row_top(row) as usize;
+        let label = inked_between(&px, 0..360, top + 4..top + 40);
         let first = *label.first().expect("a row with no label");
         assert!(
             (32..=36).contains(&first),
             "{row:?}'s label starts at x {first}"
         );
-        let value = inked(&px, 360..OUT_W as usize, top);
+        let value = inked_between(&px, 360..OUT_W as usize, top + 4..top + 40);
         let last = *value.last().expect("a row with no value");
         assert!(
             (679..=688).contains(&last),

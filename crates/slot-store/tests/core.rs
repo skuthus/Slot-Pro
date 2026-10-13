@@ -200,5 +200,15 @@ fn a_line_naming_a_core_the_platform_cannot_run_is_dropped() {
 
 #[test]
 fn the_picker_board_has_exactly_two_sockets() {
-    assert_eq!(Core::ALL.len(), 2);
+    for platform in [Platform::Gba, Platform::Gb, Platform::Gbc] {
+        let [left, right] = Core::pair(platform);
+        assert_ne!(left, right, "{platform:?} offers one core twice");
+        assert!(
+            left.runs(platform) && right.runs(platform),
+            "{platform:?} offers a core that cannot run it"
+        );
+    }
+    assert_eq!(Core::pair(Platform::Gba), [Core::Mgba, Core::Gpsp]);
+    assert_eq!(Core::pair(Platform::Gb), [Core::Mgba, Core::Gambatte]);
+    assert_eq!(Core::pair(Platform::Gbc), [Core::Mgba, Core::Gambatte]);
 }

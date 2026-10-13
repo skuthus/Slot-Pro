@@ -217,6 +217,8 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             gb_frame: GbFrame::Off,
             analog: false,
             start_favorites: false,
+            run_ahead: 0,
+            lcd_ghosting: true,
         }
     );
 }

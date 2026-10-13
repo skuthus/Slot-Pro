@@ -10,15 +10,25 @@ pub enum Core {
     #[default]
     Mgba,
     Gpsp,
+    Gambatte,
 }
 
 impl Core {
-    pub const ALL: [Core; 2] = [Core::Mgba, Core::Gpsp];
+    pub const ALL: [Core; 3] = [Core::Mgba, Core::Gpsp, Core::Gambatte];
+
+    /// The two cores the picker offers for a platform's carts, left socket first.
+    pub fn pair(platform: Platform) -> [Core; 2] {
+        match platform {
+            Platform::Gba => [Core::Mgba, Core::Gpsp],
+            Platform::Gb | Platform::Gbc => [Core::Mgba, Core::Gambatte],
+        }
+    }
 
     pub fn as_str(&self) -> &'static str {
         match self {
             Core::Mgba => "mgba",
             Core::Gpsp => "gpsp",
+            Core::Gambatte => "gambatte",
         }
     }
 
@@ -30,6 +40,7 @@ impl Core {
         match self {
             Core::Mgba => "mGBA",
             Core::Gpsp => "gpSP",
+            Core::Gambatte => "Gambatte",
         }
     }
 
@@ -37,6 +48,7 @@ impl Core {
         match s.trim().to_ascii_lowercase().as_str() {
             "mgba" => Some(Core::Mgba),
             "gpsp" => Some(Core::Gpsp),
+            "gambatte" => Some(Core::Gambatte),
             _ => None,
         }
     }
@@ -45,6 +57,7 @@ impl Core {
         match self {
             Core::Mgba => true,
             Core::Gpsp => platform == Platform::Gba,
+            Core::Gambatte => platform != Platform::Gba,
         }
     }
 

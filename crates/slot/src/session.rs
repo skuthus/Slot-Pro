@@ -233,7 +233,16 @@ impl Session {
         }
         if let Some(p) = self.app.take_gb_palette() {
             if let Some(emu) = &self.emu {
-                emu.set_option("mgba_gb_colors", p.core_name());
+                for (key, value) in crate::core::palette_options(self.app.core(), Some(p)) {
+                    emu.set_option(key, &value);
+                }
+            }
+        }
+        if let Some(on) = self.app.take_blend() {
+            if let (Some((key, value)), Some(emu)) =
+                (crate::core::blend_option(self.app.core(), on), &self.emu)
+            {
+                emu.set_option(key, value);
             }
         }
         if let Some(on) = self.app.take_colour_correction() {
@@ -372,6 +381,7 @@ impl Session {
     fn sync_speed(&self) {
         if let Some(emu) = &self.emu {
             emu.set_fast_steps(u32::from(self.app.ff_speed()));
+            emu.set_run_ahead(self.app.run_ahead());
             emu.set_ff_sound(self.app.ff_sound());
             emu.set_speed(
                 if self.inserting()
@@ -419,7 +429,15 @@ impl Session {
                 if let (true, Some(p), Some(emu)) =
                     (self.app.palette_live(), self.app.gb_palette(), &self.emu)
                 {
-                    emu.set_option("mgba_gb_colors", p.core_name());
+                    for (key, value) in crate::core::palette_options(self.app.core(), Some(p)) {
+                        emu.set_option(key, &value);
+                    }
+                }
+                let blend = self.app.ghosting_now();
+                if let (Some((key, value)), Some(emu)) =
+                    (crate::core::blend_option(self.app.core(), blend), &self.emu)
+                {
+                    emu.set_option(key, value);
                 }
                 self.app.on_core_ready()
             }

@@ -334,6 +334,7 @@ fn screen_opens_a_page_of_its_own_and_b_comes_back_to_it() {
     assert_eq!(a.quick_menu(), Some(QuickRow::GbaShader));
     for want in [
         QuickRow::GbShader,
+        QuickRow::LcdGhosting,
         QuickRow::ColourCorrection,
         QuickRow::GbPalettes,
         QuickRow::GbFrame,

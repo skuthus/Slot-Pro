@@ -15,6 +15,7 @@ by Brandon T. Kowalski.
 
 ## Features
 
+- **Favorites**: star games with Y and find them on their own shelf, optionally opening there.
 - **Cartridge carousel** with label art, per-platform shelves, an optional game title, and a 12 or
   24 hour clock.
 - **Three save slots per game**, each with a screenshot. Open them with SELECT on the carousel or
@@ -24,12 +25,14 @@ by Brandon T. Kowalski.
 - **Analog Mode**, which plays like a real GBA: no save states, menus, rewind, fast forward, turbo
   or resume. Only the game's own save survives power off.
 - **GBC Frame**, which surrounds GB and GBC games with a Game Boy Color shell in six colors.
-- **Display options**: screen shaders, Game Boy palettes, and color correction for GBA only, GB and
-  GBC only, all games, or none.
+- **Display options**: screen shaders including Authentic GBC (GBC colors, pixel grid, see-through
+  pixels and LCD ghosting), Game Boy palettes, and color correction for GBA only, GB and GBC only,
+  all games, or none.
 - **Power button**: tap for Sleep, Restart or Power Off. Hold to save and shut down.
 - **Fast boot**: compiled shaders are cached on the card, and a resumed game loads while the screen
   starts.
-- **mGBA and gpSP cores**, rewind, fast forward, turbo, rumble, and link play between two devices.
+- **mGBA, gpSP and Gambatte cores**, chosen per game, plus rewind, run-ahead, fast forward, turbo,
+  rumble, and link play between two devices.
 
 ## Supported devices
 
@@ -70,8 +73,9 @@ outside it.
 | Carousel    | Left / Right, Up / Down   | Browse, or skip to the next letter                  |
 |             | L1 / R1                   | Switch platform                                     |
 |             | A / Hold A                | Play from where you left off / start fresh          |
+|             | Y                         | Add to or remove from Favorites                     |
 |             | SELECT                    | Save slots for the highlighted game                 |
-|             | START                     | Choose mGBA or gpSP (GBA)                           |
+|             | START                     | Choose the core: mGBA or gpSP (GBA), mGBA or Gambatte (GB, GBC) |
 |             | MENU                      | Settings                                            |
 | In game     | Tap MENU                  | In-game menu                                        |
 |             | Double tap MENU           | Load a save slot                                    |
@@ -104,7 +108,8 @@ task dist:device   # build the SD card tree for H700 devices into ./dist-device
 
 - [slot](https://github.com/BrandonKowalski/slot) by Brandon T. Kowalski, which Slot Pro is built on.
 - RG28XX support by [GamerAnim](https://github.com/GamerAnim).
-- Emulation by [mGBA](https://mgba.io) (MPL-2.0) and [gpSP](https://github.com/libretro/gpsp) (GPL-2.0).
+- Emulation by [mGBA](https://mgba.io) (MPL-2.0), [gpSP](https://github.com/libretro/gpsp) (GPL-2.0) and
+  [Gambatte](https://github.com/libretro/gambatte-libretro) (GPL-2.0).
 - [BaseOS](https://github.com/pvaibhav/BaseOS) by pvaibhav.
 - Open Sans, Nerd Fonts symbols, and Cascadia Code (SIL Open Font License) for the boot logo.
 

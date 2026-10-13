@@ -68,6 +68,33 @@ impl GbPalette {
         NAMES[self.index()]
     }
 
+    /// The name Gambatte's `gambatte_gb_internal_palette` gives the same colours.
+    pub fn gambatte_name(self) -> String {
+        let name = self.core_name();
+        if let Some(sgb) = name.strip_prefix("SGB ") {
+            return format!("SGB - {}", sgb.replace('-', ""));
+        }
+        match self.label() {
+            "Grayscale" | "GBC Gray" => "GBC - Grayscale",
+            "DMG Green" => "GB - DMG",
+            "GB Pocket" => "GB - Pocket",
+            "GB Light" => "GB - Light",
+            "GBC Brown" => "GBC - Brown",
+            "GBC Red" => "GBC - Red",
+            "GBC Dark Brown" => "GBC - Dark Brown",
+            "GBC Pale Yellow" => "GBC - Pastel Mix",
+            "GBC Orange" => "GBC - Orange",
+            "GBC Yellow" => "GBC - Yellow",
+            "GBC Blue" => "GBC - Blue",
+            "GBC Dark Blue" => "GBC - Dark Blue",
+            "GBC Green" => "GBC - Green",
+            "GBC Dark Green" => "GBC - Dark Green",
+            "GBC Reverse" => "GBC - Inverted",
+            _ => "GB - DMG",
+        }
+        .to_string()
+    }
+
     pub fn label(self) -> &'static str {
         let name = self.core_name();
         match name.find(['↑', '↓', '←', '→']) {

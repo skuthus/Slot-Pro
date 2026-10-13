@@ -147,7 +147,9 @@ impl GamePass {
 
     pub fn draw(&self, quad: &Quad) {
         let src = match self.effect {
-            ScreenEffect::Grid => whole_scale_source(self.src, self.fbo_scale),
+            ScreenEffect::Grid | ScreenEffect::GbcLcd => {
+                whole_scale_source(self.src, self.fbo_scale)
+            }
             _ => self.src,
         };
         self.draw_source(self.game, quad, src);

@@ -43,6 +43,11 @@ jobs:
           for p in cores/gpsp/*.patch; do
             test -f "$out/System/licenses/gpsp-$(basename "$p")"
           done
+          gambatte_sha="$(cat vendor/gambatte-src.sha)"
+          file "$out/System/gambatte_libretro.so" | grep -q aarch64
+          test -f "$out/System/licenses/gambatte-${gambatte_sha}.tar.gz"
+          test -f "$out/System/licenses/gambatte-${gambatte_sha}.meta"
+          test -f "$out/System/licenses/gambatte-GPL-2.0.txt"
           mgba_src_commit="$(grep '^commit=' vendor/mgba_libretro.so.meta | cut -d= -f2)"
           test -f "$out/System/licenses/mgba-${mgba_src_commit}.meta"
           for p in cores/mgba/*.patch; do
@@ -85,7 +90,7 @@ jobs:
           cat > notes.md <<NOTES
           Unzip and copy the contents of \`slot-pro-${GITHUB_REF_NAME}/\` onto SD2.
 
-          Emulation by mGBA (MPL-2.0) and gpSP (GPL-2.0). Their licences, patches and gpSP's source are in \`System/licenses/\`.
+          Emulation by mGBA (MPL-2.0), gpSP (GPL-2.0) and Gambatte (GPL-2.0). Their licences, patches and the GPL cores' source are in \`System/licenses/\`.
           NOTES
           gh release create "$GITHUB_REF_NAME" "$ZIP" --repo "$GITHUB_REPOSITORY" \
             --title "$GITHUB_REF_NAME" --notes-file notes.md

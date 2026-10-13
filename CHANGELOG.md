@@ -1,11 +1,15 @@
 # Changelog
 
-## Unreleased
+## 1.1.0 (2026-10-13)
 
 ### Added
 
 - Favorites: press Y on the carousel to star a game. Starred games from every console appear A to Z on a Favorites shelf, first in the L1 / R1 cycle.
 - Start on Favorites (Gameplay): open the carousel on Favorites when there is no game to resume.
+- Gambatte core for GB and GBC games, chosen per game with START on the carousel. Palettes and color correction carry over, and cartridge clocks survive switching cores.
+- Run-Ahead (Gameplay): Off, 1 or 2 frames, to cut input lag at the cost of more CPU.
+- Authentic GBC shader for GB and GBC games: GBC screen colors, a soft pixel grid and see-through pixels. With it on, the core's own color correction steps aside so colors aren't corrected twice.
+- LCD Ghosting (Screen): with Authentic GBC, frames blend like the GBC's slow LCD, so games that flicker sprites for transparency look see-through. On by default.
 
 ## 1.0.0 (2026-10-13)
 

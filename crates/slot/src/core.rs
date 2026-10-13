@@ -155,6 +155,42 @@ pub fn colour_option(which: Core, on: bool) -> Option<(&'static str, &'static st
             "gpsp_color_correction",
             if on { "enabled" } else { "disabled" },
         )),
+        Core::Gambatte => Some((
+            "gambatte_gbc_color_correction",
+            if on { "GBC only" } else { "disabled" },
+        )),
+    }
+}
+
+/// The options that put a Game Boy palette (or the cart's own colours, given none) on `which`.
+pub fn palette_options(which: Core, palette: Option<GbPalette>) -> Vec<(&'static str, String)> {
+    match (which, palette) {
+        (Core::Gambatte, Some(p)) => vec![
+            ("gambatte_gb_colorization", "internal".into()),
+            ("gambatte_gb_internal_palette", p.gambatte_name()),
+        ],
+        (Core::Gambatte, None) => vec![
+            ("gambatte_gb_colorization", "auto".into()),
+            ("gambatte_gb_internal_palette", "GBC - Dark Green".into()),
+        ],
+        (_, Some(p)) => vec![("mgba_gb_colors", p.core_name().into())],
+        (_, None) => Vec::new(),
+    }
+}
+
+/// The option that blends frames like the GBC's slow LCD, which also lets games that flicker
+/// sprites for transparency look see-through instead of flashing.
+pub fn blend_option(which: Core, on: bool) -> Option<(&'static str, &'static str)> {
+    match which {
+        Core::Gambatte => Some((
+            "gambatte_mix_frames",
+            if on { "lcd_ghosting" } else { "disabled" },
+        )),
+        Core::Mgba => Some((
+            "mgba_interframe_blending",
+            if on { "lcd_ghosting" } else { "OFF" },
+        )),
+        Core::Gpsp => None,
     }
 }
 
@@ -175,7 +211,19 @@ pub fn apply_core_options(
     colour: bool,
     palette: Option<GbPalette>,
 ) {
-    core.set_option(&format!("{}_frameskip", which.as_str()), "auto");
+    if which != Core::Gambatte {
+        core.set_option(&format!("{}_frameskip", which.as_str()), "auto");
+    }
+    if which == Core::Gambatte {
+        for (key, value) in palette_options(which, palette) {
+            core.set_option(key, &value);
+        }
+        core.set_option("gambatte_gbc_color_correction_mode", "accurate");
+        core.set_option("gambatte_gbc_frontlight_position", "central");
+        if let Some((key, value)) = colour_option(which, colour) {
+            core.set_option(key, value);
+        }
+    }
     if which == Core::Mgba {
         core.set_option("mgba_sgb_borders", "OFF");
         core.set_option("mgba_force_gbp", "ON");

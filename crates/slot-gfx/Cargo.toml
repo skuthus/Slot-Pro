@@ -21,3 +21,4 @@ winit = { workspace = true, optional = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }
+png = { workspace = true }

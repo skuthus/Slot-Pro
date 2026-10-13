@@ -5,6 +5,8 @@ vars:
   GPSP_HOST: vendor/gpsp_libretro.dylib
   MGBA_COMMIT: e31759b24e7a4e3899285ff720d7b573ac328ae7
   GPSP_COMMIT: 7b2dd37394e2822110cacef321e9bb291a305b77
+  GAMBATTE_HOST: vendor/gambatte_libretro.dylib
+  GAMBATTE_COMMIT: d9d6cd06382d1ced30de34d56d3609452323dab1
 
 tasks:
   default:
@@ -78,6 +80,7 @@ tasks:
     cmds:
       - task: core:mgba:host
       - task: core:gpsp:host
+      - task: core:gambatte:host
 
   core:mgba:host:
     desc: Build mgba_libretro for this host from the pinned libretro/mgba commit and cores/mgba's patches
@@ -109,10 +112,30 @@ tasks:
         file {{.GPSP_HOST}} | grep -q Mach-O
         echo "fetched {{.GPSP_HOST}}"
 
+  core:gambatte:host:
+    desc: Fetch the host Gambatte core from the libretro buildbot
+    status:
+      - test -f {{.GAMBATTE_HOST}}
+    cmds:
+      - |
+        set -euo pipefail
+        case "$(uname -m)" in
+          arm64)  arch=arm64 ;;
+          x86_64) arch=x86_64 ;;
+          *) echo "unsupported arch $(uname -m)" >&2; exit 1 ;;
+        esac
+        mkdir -p vendor
+        curl -fsSL -o vendor/gambatte-host.zip \
+          "https://buildbot.libretro.com/nightly/apple/osx/${arch}/latest/gambatte_libretro.dylib.zip"
+        unzip -o -q vendor/gambatte-host.zip -d vendor
+        rm -f vendor/gambatte-host.zip
+        file {{.GAMBATTE_HOST}} | grep -q Mach-O
+        echo "fetched {{.GAMBATTE_HOST}}"
+
   core:update:
     desc: Rebuild mGBA and re-fetch gpSP for this host even if they are already vendored
     cmds:
-      - rm -f {{.CORE}} {{.CORE}}.meta {{.GPSP_HOST}}
+      - rm -f {{.CORE}} {{.CORE}}.meta {{.GPSP_HOST}} {{.GAMBATTE_HOST}}
       - task: core
 
   icons:
@@ -232,6 +255,34 @@ tasks:
       - cp vendor/gpsp_libretro.so.meta vendor/gpsp-src.meta
       - 'echo "built vendor/gpsp_libretro.so from vendor/gpsp-src.tar.gz @ {{.GPSP_COMMIT}}"'
 
+  core:gambatte:
+    desc: >-
+      Build the aarch64 linux Gambatte core from its pinned source archive, which ships beside it
+      as its GPL-2.0 section 3(a) corresponding source
+    status:
+      - test -f vendor/gambatte_libretro.so
+      - test -f vendor/gambatte-src.tar.gz
+      - test "$(cat vendor/gambatte-src.sha 2>/dev/null)" = "{{.GAMBATTE_COMMIT}}"
+      - test "$(cat vendor/gambatte_libretro.so.meta 2>/dev/null)" = "$(sh cores/gambatte/build.sh stamp {{.GAMBATTE_COMMIT}})"
+    cmds:
+      - |
+        set -euo pipefail
+        mkdir -p vendor
+        rm -f vendor/gambatte_libretro.so vendor/gambatte_libretro.so.meta \
+              vendor/gambatte-src.tar.gz vendor/gambatte-src.sha vendor/gambatte-src.meta
+        curl -fsSL -o vendor/gambatte-src.tar.gz \
+          "https://github.com/libretro/gambatte-libretro/archive/{{.GAMBATTE_COMMIT}}.tar.gz"
+        tar -tzf vendor/gambatte-src.tar.gz | grep "^gambatte-libretro-{{.GAMBATTE_COMMIT}}/Makefile.libretro$" > /dev/null
+      - task: device:sh
+        vars:
+          CMD: >-
+            sh cores/gambatte/build.sh build {{.GAMBATTE_COMMIT}} vendor/gambatte-src.tar.gz
+            target-device/gambatte vendor/gambatte_libretro.so
+      - file vendor/gambatte_libretro.so | grep -q aarch64
+      - echo "{{.GAMBATTE_COMMIT}}" > vendor/gambatte-src.sha
+      - cp vendor/gambatte_libretro.so.meta vendor/gambatte-src.meta
+      - 'echo "built vendor/gambatte_libretro.so from vendor/gambatte-src.tar.gz @ {{.GAMBATTE_COMMIT}}"'
+
   core:gpsp:update:
     desc: Refetch gpSP's source archive and rebuild the core from it, even if the set is current
     cmds:
@@ -284,7 +335,7 @@ tasks:
 
   dist:device:
     desc: Build the SD2 tree for an H700 device, OUT defaults to ./dist-device
-    deps: [core:device, core:gpsp, build:device]
+    deps: [core:device, core:gpsp, core:gambatte, build:device]
     vars:
       OUT: '{{.OUT | default "dist-device"}}'
     cmds:
@@ -296,8 +347,10 @@ tasks:
       - cp -R card/System/* {{.OUT}}/System/
       - file vendor/mgba_libretro.so | grep -q aarch64
       - file vendor/gpsp_libretro.so | grep -q aarch64
+      - file vendor/gambatte_libretro.so | grep -q aarch64
       - cp vendor/mgba_libretro.so {{.OUT}}/System/
       - cp vendor/gpsp_libretro.so {{.OUT}}/System/
+      - cp vendor/gambatte_libretro.so {{.OUT}}/System/
       - cp -r licenses {{.OUT}}/System/licenses
       - |
         set -euo pipefail
@@ -306,6 +359,15 @@ tasks:
         cp vendor/gpsp-src.meta "{{.OUT}}/System/licenses/gpsp-${sha}.meta"
         for p in cores/gpsp/*.patch; do
           cp "$p" "{{.OUT}}/System/licenses/gpsp-$(basename "$p")"
+        done
+      - |
+        set -euo pipefail
+        sha="$(cat vendor/gambatte-src.sha)"
+        cp vendor/gambatte-src.tar.gz "{{.OUT}}/System/licenses/gambatte-${sha}.tar.gz"
+        cp vendor/gambatte-src.meta "{{.OUT}}/System/licenses/gambatte-${sha}.meta"
+        for p in cores/gambatte/*.patch; do
+          [ -e "$p" ] || continue
+          cp "$p" "{{.OUT}}/System/licenses/gambatte-$(basename "$p")"
         done
       - |
         set -euo pipefail

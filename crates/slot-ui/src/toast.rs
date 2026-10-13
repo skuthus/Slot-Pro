@@ -24,6 +24,7 @@ pub enum Toast {
     ShaderGrid,
     ShaderDot,
     ShaderSimpletex,
+    ShaderGbc,
     CardUnwritable,
     FavoriteAdded,
     FavoriteRemoved,
@@ -33,7 +34,7 @@ pub enum Toast {
 }
 
 impl Toast {
-    const FIXED: [Toast; 19] = [
+    const FIXED: [Toast; 20] = [
         Toast::StateSaved,
         Toast::StateLoaded,
         Toast::NeedsGpsp,
@@ -50,6 +51,7 @@ impl Toast {
         Toast::ShaderGrid,
         Toast::ShaderDot,
         Toast::ShaderSimpletex,
+        Toast::ShaderGbc,
         Toast::CardUnwritable,
         Toast::FavoriteAdded,
         Toast::FavoriteRemoved,
@@ -102,9 +104,10 @@ impl Toast {
             Toast::ShaderGrid => "Shader: Grid",
             Toast::ShaderDot => "Shader: Dot",
             Toast::ShaderSimpletex => "Shader: Simpletex",
+            Toast::ShaderGbc => "Authentic GBC",
             Toast::CardUnwritable => "Can't write to SD card",
-            Toast::FavoriteAdded => "Added to Favorites",
-            Toast::FavoriteRemoved => "Removed from Favorites",
+            Toast::FavoriteAdded => "Favorite Added",
+            Toast::FavoriteRemoved => "Favorite Removed",
             Toast::Palette(p) => p.label(),
             Toast::SlotSaved(n) => ["Saved to Slot 1", "Saved to Slot 2", "Saved to Slot 3"]
                 .get(n)

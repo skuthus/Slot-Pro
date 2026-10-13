@@ -76,6 +76,17 @@ void main() {
     vec3 c = texture2D(u_game, uv).rgb;
     bool inside = all(greaterThanEqual(uv, u_pic.xy)) && all(lessThan(uv, u_pic.zw));
     if (!inside) {
+    } else if (u_mode > 4.5) {
+        vec3 lin = pow(c, vec3(2.2)) * 0.94;
+        lin = mat3(0.78824, 0.025, 0.12039,
+                   0.12157, 0.72941, 0.12157,
+                   0.0, 0.275, 0.82) * lin;
+        c = pow(clamp(lin, 0.0, 1.0), vec3(1.0 / 2.2));
+        vec2 hp = 0.5 * u_uv.zw * u_src / (u_rect.zw * u_fbo);
+        vec2 edge = (grid_band(f + hp) - grid_band(f - hp)) / (2.0 * hp);
+        c *= 1.0 - 0.25 * max(edge.x, edge.y);
+        vec3 through = vec3(0.86, 0.85, 0.80) * vec3(texture2D(u_paper, (floor(gl_FragCoord.xy) + 0.5) / u_paper_size).r);
+        c = mix(through * 0.11, vec3(1.0), c);
     } else if (u_mode > 3.5) {
         c = pow(c, vec3(1.05));
         vec2 d = abs(f - 0.5);

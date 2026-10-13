@@ -14,9 +14,10 @@ use slot_input::{Action, Btn, RawEvent};
 use slot_retro::ButtonMask;
 use slot_store::{write_slot_state, Cart, Core, Platform, SlotState};
 use slot_ui::{
-    board_at, grown, lid_at, lid_from, on_board, opening, shelf_cart_at, Draw, Icon, Placed, TexId,
-    BOARD_W, CART_H, CART_W, CHIP_H, CHIP_U, CHIP_V, CHIP_W, HINT_EDGE, HINT_H, LID_TURN, SLIDE_UP,
-    SOCKET_H, SOCKET_U, SOCKET_V, SOCKET_W, TURN_PAD,
+    board_at, grown, lid_from, lid_from_to, lid_rest_for, on_board, opening, shelf_cart,
+    shelf_cart_at, Draw, Icon, Placed, TexId, BOARD_W, CART_H, CART_W, CHIP_H, CHIP_U, CHIP_V,
+    CHIP_W, HINT_EDGE, HINT_H, LID_TURN, SLIDE_UP, SOCKET_H, SOCKET_U, SOCKET_V, SOCKET_W,
+    TURN_PAD,
 };
 
 fn play(a: &mut App) {
@@ -798,22 +799,98 @@ fn start_on(mut pressed: App, mut untouched: App) -> (Option<Core>, f32, bool) {
 }
 
 #[test]
-fn start_opens_no_picker_on_a_game_boy_cart() {
+fn start_opens_the_picker_on_a_game_boy_cart_and_on_a_gba_one() {
     let (_d, gb) = on_shelf_gb(&["Tetris", "Zzz"]);
     let (_twin, gb_twin) = on_shelf_gb(&["Tetris", "Zzz"]);
     let (picker, shake, moved) = start_on(gb, gb_twin);
-    assert_eq!(picker, None, "a Game Boy cart opened the GBA picker");
+    assert_eq!(
+        picker,
+        Some(Core::Mgba),
+        "a Game Boy cart with no line of its own runs the default core"
+    );
     assert_eq!(
         shake, 0.0,
         "START on a Game Boy cart was answered with a refusal shake"
     );
-    assert!(!moved, "START changed what the shelf draws");
+    assert!(moved, "the picker opened and the shelf drew the same frame");
 
     let (_d, gba) = on_shelf(&["Emerald", "Zzz"]);
     let (_twin, gba_twin) = on_shelf(&["Emerald", "Zzz"]);
     let (picker, _, moved) = start_on(gba, gba_twin);
     assert_eq!(picker, Some(Core::Mgba), "START stopped opening the picker");
     assert!(moved, "the picker opened and the shelf drew the same frame");
+}
+
+#[test]
+fn a_game_boy_cart_picks_between_mgba_and_gambatte() {
+    let (d, mut app) = on_shelf_gb(&["Tetris", "Zzz"]);
+    fake_picker_faces(&mut app);
+    app.apply(Action::GbaDown(Btn::Start));
+    assert_eq!(app.core_picker(), Some(Core::Mgba));
+
+    app.apply(Action::GbaDown(Btn::Left));
+    assert_eq!(
+        app.core_picker(),
+        Some(Core::Mgba),
+        "left from mGBA wrapped round"
+    );
+    assert_ne!(
+        app.core_picker_chip().unwrap().shake,
+        0.0,
+        "a press toward the chip's own socket went unanswered"
+    );
+
+    app.apply(Action::GbaDown(Btn::Right));
+    assert_eq!(
+        app.core_picker(),
+        Some(Core::Gambatte),
+        "right from mGBA did not reach Gambatte"
+    );
+    let_it_hop(&mut app);
+    app.apply(Action::GbaDown(Btn::Right));
+    assert_eq!(
+        app.core_picker(),
+        Some(Core::Gambatte),
+        "right from Gambatte wrapped round"
+    );
+
+    app.apply(Action::GbaDown(Btn::Left));
+    assert_eq!(app.core_picker(), Some(Core::Mgba));
+    let_it_hop(&mut app);
+    app.apply(Action::GbaDown(Btn::Right));
+    app.apply(Action::GbaDown(Btn::A));
+    assert_eq!(
+        slot_store::core_for_platform(d.path(), "Tetris", Platform::Gb),
+        Core::Gambatte
+    );
+    let file = std::fs::read_to_string(d.path().join(slot_store::SELECTED_CORE_FILE)).unwrap();
+    assert!(
+        file.to_lowercase().contains("gambatte"),
+        "the choice never reached selected_core.txt: {file:?}"
+    );
+    assert_eq!(
+        slot_store::core_for_platform(d.path(), "Zzz", Platform::Gb),
+        Core::Mgba,
+        "the choice landed on a cart the shelf was not on"
+    );
+}
+
+#[test]
+fn a_game_boy_picker_seats_the_core_the_cart_already_runs() {
+    let (d, mut app) = on_shelf_gb(&["Tetris", "Zzz"]);
+    slot_store::write_selected_core(d.path(), "Tetris", Core::Gambatte).unwrap();
+    app.apply(Action::GbaDown(Btn::Start));
+    assert_eq!(app.core_picker(), Some(Core::Gambatte));
+    app.apply(Action::GbaDown(Btn::B));
+    let_it_close(&mut app);
+
+    slot_store::write_selected_core(d.path(), "Tetris", Core::Gpsp).unwrap();
+    app.apply(Action::GbaDown(Btn::Start));
+    assert_eq!(
+        app.core_picker(),
+        Some(Core::Mgba),
+        "a core that cannot run a Game Boy cart was seated for it"
+    );
 }
 
 #[test]
@@ -1255,6 +1332,11 @@ fn assert_plain_shelf(out: &[Draw], f: &PickerFaces, when: &str) {
     );
 }
 
+/// The lid of a GBA cart on the middle of the shelf, `progress` of the way through the open.
+fn gba_lid_at(progress: f32) -> (Placed, f32) {
+    lid_from_to(shelf_cart(), progress, lid_rest_for(Platform::Gba))
+}
+
 fn let_it_open(app: &mut App) {
     app.update(0.5);
 }
@@ -1315,7 +1397,7 @@ fn the_open_cart_rests_over_the_shelf_with_its_lid_turned() {
     );
     assert!(turned_at(&out, f.blank).is_none(), "a blank chip at rest");
 
-    let (lid_rest, turn) = lid_at(1.0);
+    let (lid_rest, turn) = gba_lid_at(1.0);
     let want = grown(lid_rest, TURN_PAD as f32 * lid_rest.w / CART_W as f32);
     let (lid_i, lid, lid_turn) = turned_at(&out, f.lid).expect("no lid");
     assert!(
@@ -1332,9 +1414,20 @@ fn the_open_cart_rests_over_the_shelf_with_its_lid_turned() {
         "expected the lid's shadow alone, got {shadows:?}"
     );
     let (shadow_i, s) = shadows[0];
+    // The shadow is cut for the 144 px GBA lid and scales with the lid's own width, which for a
+    // GBA cart is its width at the cart's proportions.
+    let k = lid_rest.w / 144.0;
+    let (under_x, under_y) = (
+        lid_rest.x + lid_rest.w / 2.0,
+        lid_rest.y + lid_rest.h + 29.0 * k,
+    );
     assert!(
-        (s[0] + s[2] / 2.0 - 360.0).abs() < 0.01 && (s[1] + s[3] / 2.0 - 140.0).abs() < 0.01,
+        (s[0] + s[2] / 2.0 - under_x).abs() < 0.01 && (s[1] + s[3] / 2.0 - under_y).abs() < 0.01,
         "the lid's shadow is not under it: {s:?}"
+    );
+    assert!(
+        (s[2] - 168.0 * k).abs() < 0.01,
+        "the lid's shadow does not scale with the lid: {s:?}"
     );
     assert!(shadow_i < lid_i, "the lid's shadow is drawn over the lid");
 
@@ -1495,7 +1588,7 @@ fn the_highlighted_cart_becomes_the_lid_rather_than_a_second_cart() {
         "the lid is not turning: {turn}"
     );
     assert!(
-        lid[1] < lid_at(0.0).0.y && lid[1] > lid_at(1.0).0.y,
+        lid[1] < gba_lid_at(0.0).0.y && lid[1] > gba_lid_at(1.0).0.y,
         "the lid is not on its way up: {lid:?}"
     );
     let (_, [bx, by, bw, bh]) = tex_at(&lifting, f.board).expect("no board mid-lift");
@@ -1598,7 +1691,10 @@ fn closing_puts_the_cart_back_on_the_shelf() {
         turn < 0.0 && turn > LID_TURN,
         "the lid is not turning level: {turn}"
     );
-    assert!(lid[1] > lid_at(1.0).0.y, "the lid is not coming back down");
+    assert!(
+        lid[1] > gba_lid_at(1.0).0.y,
+        "the lid is not coming back down"
+    );
     let (_, [bx, by, bw, bh]) = tex_at(&partway, f.board).expect("the board vanished mid-close");
     assert!(
         bw < board_at(1.0).w && bw > board_at(0.0).w,
@@ -1668,7 +1764,7 @@ fn the_open_waits_on_the_shelf_for_its_faces() {
     );
 
     let_it_open(&mut app);
-    let (rest, _) = lid_at(1.0);
+    let (rest, _) = gba_lid_at(1.0);
     let rest = grown(rest, TURN_PAD as f32 * rest.w / CART_W as f32);
     let (_, lid, _) = turned_at(&frame(&app), f.lid).expect("no lid once open");
     assert!(
@@ -1726,7 +1822,7 @@ fn the_fallback_open_lifts_the_shelfs_own_face_for_the_lid() {
     app.update(1.501);
     let_it_open(&mut app);
 
-    let (rest, _) = lid_at(1.0);
+    let (rest, _) = gba_lid_at(1.0);
     let (_, lid, turn) =
         turned_at(&frame(&app), shelf_faces[0]).expect("no lid drawn from the shelf's own face");
     assert!(

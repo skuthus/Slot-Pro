@@ -131,7 +131,7 @@ fn let_it_hop(app: &mut App) {
 }
 
 #[test]
-fn start_draws_the_plain_shelf_on_a_game_boy_cart() {
+fn start_draws_the_picker_on_a_game_boy_cart() {
     let Some((_g, _s, mut c)) = compositor() else {
         eprintln!("no GL on this host, skipping");
         return;
@@ -148,12 +148,21 @@ fn start_draws_the_plain_shelf_on_a_game_boy_cart() {
     let after = shot(&pressed, &mut c, "gb-after-start");
     assert_eq!(
         pressed.core_picker(),
-        None,
-        "a Game Boy cart opened the GBA picker"
+        Some(Core::Mgba),
+        "START stopped opening the picker on a Game Boy cart"
     );
     assert!(
-        after == plain,
-        "START put something on screen over a Game Boy cart"
+        after != plain,
+        "the picker opened and the panel showed the same shelf"
+    );
+
+    pressed.apply(Action::GbaDown(Btn::Right));
+    let_it_hop(&mut pressed);
+    let gambatte = shot(&pressed, &mut c, "gb-gambatte");
+    assert_eq!(pressed.core_picker(), Some(Core::Gambatte));
+    assert!(
+        gambatte != after,
+        "the chip moved to Gambatte and the panel showed the same board"
     );
 
     let d = common::tmp_root_with_carts(&["Emerald", "Zzz"]);

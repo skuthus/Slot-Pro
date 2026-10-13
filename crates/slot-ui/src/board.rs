@@ -208,6 +208,41 @@ pub fn shelf_cart_at(x: f32, scale: f32) -> Placed {
     }
 }
 
+pub fn shelf_cart_for(x: f32, scale: f32, platform: slot_store::Platform) -> Placed {
+    let (cw, ch) = crate::cart::cart_box(platform);
+    let (w, h) = (cw as f32 * scale, ch as f32 * scale);
+    Placed {
+        x,
+        y: foot_y(ch as f32) - h,
+        w,
+        h,
+    }
+}
+
+/// Where the lid lands for a cart of this shape: the GBA lid's height and centre, at the cart's
+/// own proportions.
+pub fn lid_rest_for(platform: slot_store::Platform) -> Placed {
+    if platform == slot_store::Platform::Gba {
+        return LID_REST;
+    }
+    let (cw, ch) = crate::cart::cart_box(platform);
+    let w = LID_REST.h * cw as f32 / ch as f32;
+    Placed {
+        x: LID_REST.x + (LID_REST.w - w) / 2.0,
+        w,
+        ..LID_REST
+    }
+}
+
+pub fn lid_from_to(shelf: Placed, progress: f32, rest: Placed) -> (Placed, f32) {
+    let slid = Placed {
+        y: shelf.y - SLIDE_UP * slide_of(progress),
+        ..shelf
+    };
+    let lift = lift_of(progress);
+    (lerp(slid, rest, lift), LID_TURN * lift)
+}
+
 pub fn board_at(progress: f32) -> Placed {
     board_from(shelf_cart(), progress)
 }
