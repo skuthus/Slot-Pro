@@ -201,6 +201,9 @@ impl Frontend {
         let shadow = cart_shadow();
         let id = compositor.create_texture(shadow.w, shadow.h, &shadow.rgba);
         self.session.app_mut().set_cart_shadow(id);
+        let star = slot_ui::star_face();
+        let star = compositor.create_texture(star.w, star.h, &star.rgba);
+        self.session.app_mut().set_star_face(star);
         let notched = gb_cart_shadow(GbShell::Notched);
         let notched = compositor.create_texture(notched.w, notched.h, &notched.rgba);
         let rounded = gb_cart_shadow(GbShell::Rounded);

@@ -2,6 +2,7 @@ mod atomic;
 pub mod cart_shell;
 mod config;
 mod core;
+mod favorites;
 pub mod gb;
 mod gb_palette;
 mod gba;
@@ -20,6 +21,7 @@ pub use config::{move_config, CONFIG_DIR};
 pub use core::{
     core_for, core_for_platform, read_selected_cores, write_selected_core, Core, SELECTED_CORE_FILE,
 };
+pub use favorites::{read_favorites, write_favorites};
 pub use gb_palette::GbPalette;
 pub use gba::{header_clean, header_code, header_title, header_title_code};
 pub use layout::{read_game_layout, write_game_layout, Layout, PadKey};

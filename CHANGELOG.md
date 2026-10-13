@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Favorites: press Y on the carousel to star a game. Starred games from every console appear A to Z on a Favorites shelf, first in the L1 / R1 cycle.
+- Start on Favorites (Gameplay): open the carousel on Favorites when there is no game to resume.
+
 ## 1.0.0 (2026-10-13)
 
 Based on slot 1.6.0. For earlier history, see the

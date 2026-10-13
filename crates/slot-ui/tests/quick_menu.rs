@@ -97,6 +97,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
         QuickRow::GAME.map(QuickRow::label),
         [
             "Analog Mode",
+            "Start on Favorites",
             "Fast Forward",
             "Fast Forward Sound",
             "Rewind",

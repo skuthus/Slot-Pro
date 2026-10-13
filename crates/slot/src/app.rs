@@ -8,9 +8,10 @@ use slot_input::{Action, Btn, MUTE_CHORD_MS};
 use slot_power::{Battery, Charge, LedState, LidPolicy, Power};
 use slot_retro::LinkChannel;
 use slot_store::{
-    format_stamp, read_game_layout, read_slot_state, scan, write_game_layout, write_slot_state,
-    Cart, CartTitle, ColourCorrection, Core, GbFrame, GbPalette, Layout, Platform, Shader,
-    SlotState, StateEntry, StateRing, Theme, BLUE_LIGHT_MAX, BRIGHTNESS_MAX, FF_SPEEDS, VOLUME_MAX,
+    format_stamp, read_favorites, read_game_layout, read_slot_state, scan, write_favorites,
+    write_game_layout, write_slot_state, Cart, CartTitle, ColourCorrection, Core, GbFrame,
+    GbPalette, Layout, Platform, Shader, SlotState, StateEntry, StateRing, Theme, BLUE_LIGHT_MAX,
+    BRIGHTNESS_MAX, FF_SPEEDS, VOLUME_MAX,
 };
 use slot_ui::{
     board_from, board_zoom, draw_backdrop, draw_empty_slot, draw_footer, draw_slot_name,
@@ -264,7 +265,9 @@ pub enum Phase {
 
 pub struct App {
     phase: Phase,
-    shelves: Vec<(Platform, Shelf)>,
+    shelves: Vec<(ShelfKind, Shelf)>,
+    favorites: Vec<(Platform, String)>,
+    shed_extra: Vec<TexId>,
     shelf_at: usize,
     play_held: Option<Millis>,
     refusal: Option<Refusal>,
@@ -370,7 +373,24 @@ pub struct FaceWant {
     pub on_screen: bool,
 }
 
-fn shelves_of(carts: Vec<Cart>) -> Vec<(Platform, Shelf)> {
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+pub enum ShelfKind {
+    Favorites,
+    Console(Platform),
+}
+
+impl ShelfKind {
+    pub fn name(self) -> &'static str {
+        match self {
+            ShelfKind::Favorites => "Favorites",
+            ShelfKind::Console(p) => p.name(),
+        }
+    }
+}
+
+const FAVORITES: usize = 0;
+
+fn shelves_of(carts: Vec<Cart>) -> Vec<(ShelfKind, Shelf)> {
     let mut rows: Vec<(Platform, Vec<Cart>)> =
         Platform::ALL.iter().map(|p| (*p, Vec::new())).collect();
     for cart in carts {
@@ -378,8 +398,11 @@ fn shelves_of(carts: Vec<Cart>) -> Vec<(Platform, Shelf)> {
             row.push(cart);
         }
     }
-    rows.into_iter()
-        .map(|(platform, carts)| (platform, Shelf::new(carts)))
+    std::iter::once((ShelfKind::Favorites, Shelf::new(Vec::new())))
+        .chain(
+            rows.into_iter()
+                .map(|(platform, carts)| (ShelfKind::Console(platform), Shelf::new(carts))),
+        )
         .collect()
 }
 
@@ -398,6 +421,8 @@ impl App {
             phase: Phase::Shelf,
             shelves,
             shelf_at,
+            favorites: Vec::new(),
+            shed_extra: Vec::new(),
             play_held: None,
             refusal: None,
             refused_from: None,
@@ -500,6 +525,8 @@ impl App {
         let mut app = App::new(carts);
         app.root = Some(root.to_path_buf());
         app.state = read_slot_state(root);
+        app.favorites = read_favorites(root);
+        app.rebuild_favorites();
         if app.state.clock_set {
             app.start();
         } else {
@@ -530,6 +557,9 @@ impl App {
             None => {
                 self.state.cart = None;
                 self.state.cart_platform = None;
+                if self.state.start_favorites && !self.shelves[FAVORITES].1.carts.is_empty() {
+                    self.shelf_at = FAVORITES;
+                }
                 self.name_pending = true;
             }
         }
@@ -603,7 +633,10 @@ impl App {
         self.shelves
             .iter()
             .enumerate()
-            .filter(|(_, (p, _))| platform.is_none_or(|want| *p == want))
+            .filter(|(_, (kind, _))| match kind {
+                ShelfKind::Favorites => false,
+                ShelfKind::Console(p) => platform.is_none_or(|want| *p == want),
+            })
             .find_map(|(at, (_, shelf))| {
                 shelf
                     .carts
@@ -686,6 +719,7 @@ impl App {
             }),
             QuickRow::Shader => Some(shader_value(self.screen_shader())),
             QuickRow::Analog => Some(QuickValue::flag(self.state.analog)),
+            QuickRow::StartFavorites => Some(QuickValue::flag(self.state.start_favorites)),
             QuickRow::GbFrame => Some(match self.state.gb_frame {
                 GbFrame::Off => QuickValue::Off,
                 GbFrame::Berry => QuickValue::Berry,
@@ -790,7 +824,7 @@ impl App {
 
     pub fn shelf_platform_name(&self) -> Option<&'static str> {
         self.next_shelf(1)?;
-        Some(self.shelves[self.shelf_at].0.name())
+        Some(self.shelf_kind().name())
     }
 
     pub fn set_battery_percent_face(&mut self, face: TexId, w: u32) {
@@ -812,7 +846,88 @@ impl App {
     pub fn carts(&self) -> impl Iterator<Item = &Cart> {
         self.shelves
             .iter()
+            .filter(|(kind, _)| *kind != ShelfKind::Favorites)
             .flat_map(|(_, shelf)| shelf.carts.iter())
+    }
+
+    pub fn shelf_kind(&self) -> ShelfKind {
+        self.shelves[self.shelf_at].0
+    }
+
+    pub fn is_favorite(&self, platform: Platform, stem: &str) -> bool {
+        self.favorites
+            .iter()
+            .any(|(p, s)| *p == platform && s == stem)
+    }
+
+    pub fn set_star_face(&mut self, face: TexId) {
+        for (_, shelf) in &mut self.shelves {
+            shelf.set_star(face);
+        }
+    }
+
+    fn rebuild_favorites(&mut self) {
+        let mut carts: Vec<Cart> = self
+            .carts()
+            .filter(|c| self.is_favorite(c.platform, &c.stem))
+            .cloned()
+            .collect();
+        carts.sort_by_key(|c| slot_store::sort_key(&c.stem));
+        let shed = self.shelves[FAVORITES].1.set_carts(carts);
+        self.shed_extra.extend(shed);
+        let starred: Vec<Vec<bool>> = self
+            .shelves
+            .iter()
+            .map(|(_, shelf)| {
+                shelf
+                    .carts
+                    .iter()
+                    .map(|c| self.is_favorite(c.platform, &c.stem))
+                    .collect()
+            })
+            .collect();
+        for ((_, shelf), starred) in self.shelves.iter_mut().zip(starred) {
+            shelf.set_starred(starred);
+        }
+    }
+
+    fn toggle_favorite(&mut self) {
+        let Some((platform, stem)) = self
+            .shelf()
+            .carts
+            .get(self.shelf().index)
+            .map(|c| (c.platform, c.stem.clone()))
+        else {
+            return;
+        };
+        let added = match self
+            .favorites
+            .iter()
+            .position(|(p, s)| *p == platform && *s == stem)
+        {
+            Some(at) => {
+                self.favorites.remove(at);
+                false
+            }
+            None => {
+                self.favorites.push((platform, stem));
+                true
+            }
+        };
+        if let Some(root) = &self.root {
+            if let Err(e) = write_favorites(root, &self.favorites) {
+                eprintln!("slot: favorites: {e}");
+            }
+        }
+        self.rebuild_favorites();
+        if self.shelf_at == FAVORITES && self.shelf().carts.is_empty() {
+            self.switch_shelf(1);
+        }
+        let said = match added {
+            true => Toast::FavoriteAdded,
+            false => Toast::FavoriteRemoved,
+        };
+        self.hud.toast(said, self.now());
     }
 
     pub fn seated_cart(&self) -> Option<&Cart> {
@@ -833,7 +948,11 @@ impl App {
 
     pub fn set_faces(&mut self, faces: Vec<TexId>) {
         let mut faces = faces.into_iter();
-        for (_, shelf) in &mut self.shelves {
+        for (_, shelf) in self
+            .shelves
+            .iter_mut()
+            .filter(|(kind, _)| *kind != ShelfKind::Favorites)
+        {
             let n = shelf.carts.len();
             shelf.set_faces(faces.by_ref().take(n).collect());
         }
@@ -873,7 +992,7 @@ impl App {
 
     pub fn shed_faces(&mut self) -> Vec<TexId> {
         let neighbours = self.neighbour_shelves();
-        let mut shed = Vec::new();
+        let mut shed = std::mem::take(&mut self.shed_extra);
         for (at, (_, shelf)) in self.shelves.iter_mut().enumerate() {
             let keep = if at == self.shelf_at {
                 shelf.around(FACE_KEEP)
@@ -1400,6 +1519,7 @@ impl App {
                 {
                     self.open_shelf_slots()
                 }
+                Action::GbaDown(Btn::Y) if self.core_picker.is_none() => self.toggle_favorite(),
                 Action::GbaDown(Btn::Start) if self.core_picker.is_none() => {
                     self.open_core_picker()
                 }
@@ -1541,6 +1661,7 @@ impl App {
             QuickRow::CartTitle => s.cart_title = s.cart_title.step(right),
             QuickRow::ClockFormat => s.clock_24h = !s.clock_24h,
             QuickRow::Analog => s.analog = !s.analog,
+            QuickRow::StartFavorites => s.start_favorites = !s.start_favorites,
             QuickRow::GbFrame => s.gb_frame = s.gb_frame.step(right),
             QuickRow::RemapA
             | QuickRow::RemapB

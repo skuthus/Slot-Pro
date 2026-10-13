@@ -216,6 +216,7 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             layout: Layout::default(),
             gb_frame: GbFrame::Off,
             analog: false,
+            start_favorites: false,
         }
     );
 }
@@ -580,4 +581,42 @@ fn a_slot_state_from_before_analog_reads_it_as_off() {
     let s = read_slot_state(d.path());
     assert_eq!(s.cart.as_deref(), Some("Emerald"));
     assert!(!s.analog);
+}
+
+#[test]
+fn start_on_favorites_is_off_by_default_and_round_trips() {
+    assert!(!SlotState::default().start_favorites);
+    let d = tmp_root();
+    let s = SlotState {
+        clock_set: true,
+        start_favorites: true,
+        ..SlotState::default()
+    };
+    write_slot_state(d.path(), &s).unwrap();
+    assert_eq!(read_slot_state(d.path()), s);
+    let text = std::fs::read_to_string(d.path().join("Config/slot.state")).unwrap();
+    assert!(text.lines().any(|l| l == "start_favorites=1"), "{text}");
+    write_slot_state(
+        d.path(),
+        &SlotState {
+            start_favorites: false,
+            ..s
+        },
+    )
+    .unwrap();
+    assert!(!read_slot_state(d.path()).start_favorites);
+}
+
+#[test]
+fn a_state_file_from_before_favorites_starts_off_and_keeps_its_values() {
+    let d = tmp_root();
+    std::fs::write(
+        d.path().join("Config/slot.state"),
+        "cart=Emerald\nbrightness=3\nblue_light=1\nvolume=40\nmuted=1\nclock_set=1\nutc_offset_min=-300\nanalog=1\n",
+    )
+    .unwrap();
+    let s = read_slot_state(d.path());
+    assert!(!s.start_favorites);
+    assert!(s.analog);
+    assert_eq!(s.cart.as_deref(), Some("Emerald"));
 }

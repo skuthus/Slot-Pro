@@ -90,6 +90,8 @@ pub struct Shelf {
     gb_shadow: Option<TexId>,
     gbc_shadow: Option<TexId>,
     shells: Vec<Option<GbShell>>,
+    starred: Vec<bool>,
+    star: Option<TexId>,
     ride: f32,
     vel: f32,
     held: Option<(i32, Millis, usize)>,
@@ -100,6 +102,8 @@ impl Shelf {
         Shelf {
             shells: carts.iter().map(gb_shell_of).collect(),
             faces: vec![None; carts.len()],
+            starred: vec![false; carts.len()],
+            star: None,
             carts,
             index: 0,
             scroll: 0.0,
@@ -110,6 +114,27 @@ impl Shelf {
             vel: 0.0,
             held: None,
         }
+    }
+
+    pub fn set_carts(&mut self, carts: Vec<Cart>) -> Vec<TexId> {
+        let shed = self.faces.drain(..).flatten().collect();
+        self.shells = carts.iter().map(gb_shell_of).collect();
+        self.faces = vec![None; carts.len()];
+        self.starred = vec![false; carts.len()];
+        self.carts = carts;
+        self.index = self.index.min(self.carts.len().saturating_sub(1));
+        self.scroll = self.scroll_target();
+        self.vel = 0.0;
+        self.held = None;
+        shed
+    }
+
+    pub fn set_starred(&mut self, starred: Vec<bool>) {
+        self.starred = starred;
+    }
+
+    pub fn set_star(&mut self, face: TexId) {
+        self.star = Some(face);
     }
 
     pub fn select(&mut self, i: usize) {
@@ -444,7 +469,34 @@ impl Shelf {
                     }
                 }
             });
+            if let (Some(tex), Some(true)) = (self.star, self.starred.get(i).copied()) {
+                let size = STAR_PX * scale;
+                out.push(Draw::Tex {
+                    x: x + w - size * 0.8,
+                    y: y - size * 0.3,
+                    w: size,
+                    h: size,
+                    tex,
+                    alpha: alpha * dim,
+                });
+            }
         }
+    }
+}
+
+pub const STAR_PX: f32 = 44.0;
+
+pub fn star_face() -> crate::plate::UndoFace {
+    const SVG: &str = r##"<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+<path d="M50 6 L62 37 L95 38 L69 58 L78 91 L50 72 L22 91 L31 58 L5 38 L38 37 Z"
+ fill="#ffd23f" stroke="#1a1917" stroke-width="7" stroke-linejoin="round"/>
+</svg>"##;
+    let side = STAR_PX as u32 * 2;
+    let rgba = crate::art::render_svg(SVG, side, side).unwrap_or_default();
+    crate::plate::UndoFace {
+        rgba,
+        w: side,
+        h: side,
     }
 }
 

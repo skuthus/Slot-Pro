@@ -25,6 +25,7 @@ pub enum QuickRow {
     ClockFormat,
     GbFrame,
     Analog,
+    StartFavorites,
     Controls,
     RemapA,
     RemapB,
@@ -52,7 +53,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 42] = [
+    pub const ALL: [QuickRow; 43] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -71,6 +72,7 @@ impl QuickRow {
         QuickRow::ClockFormat,
         QuickRow::GbFrame,
         QuickRow::Analog,
+        QuickRow::StartFavorites,
         QuickRow::Controls,
         QuickRow::RemapA,
         QuickRow::RemapB,
@@ -115,8 +117,9 @@ impl QuickRow {
         QuickRow::ClockFormat,
     ];
 
-    pub const GAME: [QuickRow; 7] = [
+    pub const GAME: [QuickRow; 8] = [
         QuickRow::Analog,
+        QuickRow::StartFavorites,
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Rewind,
@@ -190,7 +193,8 @@ impl QuickRow {
             | QuickRow::Turbo
             | QuickRow::Rumble
             | QuickRow::EjectSave
-            | QuickRow::Analog => &QuickRow::GAME,
+            | QuickRow::Analog
+            | QuickRow::StartFavorites => &QuickRow::GAME,
             QuickRow::RemapA
             | QuickRow::RemapB
             | QuickRow::RemapL
@@ -262,6 +266,7 @@ impl QuickRow {
             QuickRow::ClockFormat => "Clock",
             QuickRow::GbFrame => "GBC Frame",
             QuickRow::Analog => "Analog Mode",
+            QuickRow::StartFavorites => "Start on Favorites",
             QuickRow::Controls | QuickRow::GameControls => "Controls",
             QuickRow::RemapA | QuickRow::GameRemapA => "A Button",
             QuickRow::RemapB | QuickRow::GameRemapB => "B Button",
