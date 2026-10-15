@@ -805,7 +805,7 @@ fn start_opens_the_picker_on_a_game_boy_cart_and_on_a_gba_one() {
     let (picker, shake, moved) = start_on(gb, gb_twin);
     assert_eq!(
         picker,
-        Some(Core::Mgba),
+        Some(Core::Gambatte),
         "a Game Boy cart with no line of its own runs the default core"
     );
     assert_eq!(
@@ -826,13 +826,13 @@ fn a_game_boy_cart_picks_between_mgba_and_gambatte() {
     let (d, mut app) = on_shelf_gb(&["Tetris", "Zzz"]);
     fake_picker_faces(&mut app);
     app.apply(Action::GbaDown(Btn::Start));
-    assert_eq!(app.core_picker(), Some(Core::Mgba));
+    assert_eq!(app.core_picker(), Some(Core::Gambatte));
 
-    app.apply(Action::GbaDown(Btn::Left));
+    app.apply(Action::GbaDown(Btn::Right));
     assert_eq!(
         app.core_picker(),
-        Some(Core::Mgba),
-        "left from mGBA wrapped round"
+        Some(Core::Gambatte),
+        "right from Gambatte wrapped round"
     );
     assert_ne!(
         app.core_picker_chip().unwrap().shake,
@@ -840,37 +840,32 @@ fn a_game_boy_cart_picks_between_mgba_and_gambatte() {
         "a press toward the chip's own socket went unanswered"
     );
 
-    app.apply(Action::GbaDown(Btn::Right));
-    assert_eq!(
-        app.core_picker(),
-        Some(Core::Gambatte),
-        "right from mGBA did not reach Gambatte"
-    );
-    let_it_hop(&mut app);
-    app.apply(Action::GbaDown(Btn::Right));
-    assert_eq!(
-        app.core_picker(),
-        Some(Core::Gambatte),
-        "right from Gambatte wrapped round"
-    );
-
     app.apply(Action::GbaDown(Btn::Left));
-    assert_eq!(app.core_picker(), Some(Core::Mgba));
+    assert_eq!(
+        app.core_picker(),
+        Some(Core::Mgba),
+        "left from Gambatte did not reach mGBA"
+    );
     let_it_hop(&mut app);
-    app.apply(Action::GbaDown(Btn::Right));
+    app.apply(Action::GbaDown(Btn::Left));
+    assert_eq!(
+        app.core_picker(),
+        Some(Core::Mgba),
+        "left from mGBA wrapped round"
+    );
     app.apply(Action::GbaDown(Btn::A));
     assert_eq!(
         slot_store::core_for_platform(d.path(), "Tetris", Platform::Gb),
-        Core::Gambatte
+        Core::Mgba
     );
     let file = std::fs::read_to_string(d.path().join(slot_store::SELECTED_CORE_FILE)).unwrap();
     assert!(
-        file.to_lowercase().contains("gambatte"),
+        file.to_lowercase().contains("mgba"),
         "the choice never reached selected_core.txt: {file:?}"
     );
     assert_eq!(
         slot_store::core_for_platform(d.path(), "Zzz", Platform::Gb),
-        Core::Mgba,
+        Core::Gambatte,
         "the choice landed on a cart the shelf was not on"
     );
 }
@@ -878,9 +873,9 @@ fn a_game_boy_cart_picks_between_mgba_and_gambatte() {
 #[test]
 fn a_game_boy_picker_seats_the_core_the_cart_already_runs() {
     let (d, mut app) = on_shelf_gb(&["Tetris", "Zzz"]);
-    slot_store::write_selected_core(d.path(), "Tetris", Core::Gambatte).unwrap();
+    slot_store::write_selected_core(d.path(), "Tetris", Core::Mgba).unwrap();
     app.apply(Action::GbaDown(Btn::Start));
-    assert_eq!(app.core_picker(), Some(Core::Gambatte));
+    assert_eq!(app.core_picker(), Some(Core::Mgba));
     app.apply(Action::GbaDown(Btn::B));
     let_it_close(&mut app);
 
@@ -888,7 +883,7 @@ fn a_game_boy_picker_seats_the_core_the_cart_already_runs() {
     app.apply(Action::GbaDown(Btn::Start));
     assert_eq!(
         app.core_picker(),
-        Some(Core::Mgba),
+        Some(Core::Gambatte),
         "a core that cannot run a Game Boy cart was seated for it"
     );
 }

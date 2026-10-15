@@ -148,7 +148,7 @@ fn start_draws_the_picker_on_a_game_boy_cart() {
     let after = shot(&pressed, &mut c, "gb-after-start");
     assert_eq!(
         pressed.core_picker(),
-        Some(Core::Mgba),
+        Some(Core::Gambatte),
         "START stopped opening the picker on a Game Boy cart"
     );
     assert!(
@@ -156,13 +156,13 @@ fn start_draws_the_picker_on_a_game_boy_cart() {
         "the picker opened and the panel showed the same shelf"
     );
 
-    pressed.apply(Action::GbaDown(Btn::Right));
+    pressed.apply(Action::GbaDown(Btn::Left));
     let_it_hop(&mut pressed);
-    let gambatte = shot(&pressed, &mut c, "gb-gambatte");
-    assert_eq!(pressed.core_picker(), Some(Core::Gambatte));
+    let mgba = shot(&pressed, &mut c, "gb-mgba");
+    assert_eq!(pressed.core_picker(), Some(Core::Mgba));
     assert!(
-        gambatte != after,
-        "the chip moved to Gambatte and the panel showed the same board"
+        mgba != after,
+        "the chip moved to mGBA and the panel showed the same board"
     );
 
     let d = common::tmp_root_with_carts(&["Emerald", "Zzz"]);

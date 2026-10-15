@@ -43,7 +43,7 @@ fn thumb(w: u32, h: u32) -> Vec<u8> {
 
 fn fill_slots(root: &Path, platform: Platform, stems: &[&str], size: (u32, u32)) {
     for stem in stems {
-        let ring = StateRing::new(root, platform, Core::Mgba, stem);
+        let ring = StateRing::new(root, platform, Core::default_for(platform), stem);
         ring.write_slot(0, b"state", &thumb(size.0, size.1), "2026-10-12_09-00-00")
             .expect("write a slot");
     }
