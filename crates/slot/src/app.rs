@@ -2458,6 +2458,13 @@ impl App {
                 over_game: true,
             }
             .draw(out);
+            draw_footer(
+                self.battery,
+                self.battery_percent,
+                self.bolt,
+                self.shelf_clock,
+                out,
+            );
         }
         if let (Phase::Shelf, Some(p)) = (&self.phase, &self.polaroids) {
             if let Some(rect) = self.shelf_photo_rect() {

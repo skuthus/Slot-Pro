@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Gambatte is the default core for GB and GBC games. Games already set to mGBA with START keep it; others start from their in-game save on Gambatte, and their mGBA states return if switched back.
+- The in-game menu shows the battery, its percentage and the clock.
+
 ## 1.1.0 (2026-10-13)
 
 ### Added
