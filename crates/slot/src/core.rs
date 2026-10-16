@@ -220,6 +220,8 @@ pub fn apply_core_options(
         }
         core.set_option("gambatte_gbc_color_correction_mode", "accurate");
         core.set_option("gambatte_gbc_frontlight_position", "central");
+        // Unanswered, Gambatte reads its rumble level as 0 and never drives the motor.
+        core.set_option("gambatte_rumble_level", "10");
         if let Some((key, value)) = colour_option(which, colour) {
             core.set_option(key, value);
         }

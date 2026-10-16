@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Rumble works in Gambatte. It used to read its rumble level as 0 because slot never set it.
+
 ## 1.1.2 (2026-10-16)
 
 ### Added
