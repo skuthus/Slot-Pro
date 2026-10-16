@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Three darker brightness steps below the old lowest. Saved brightness moves up to keep the same light.
+
+### Fixed
+
+- Saves and states reach the card before slot carries on, so a power cut right after a save can no longer leave the card read-only with the save's file entry pointing at freed space.
+
 ## 1.1.1 (2026-10-15)
 
 ### Changed

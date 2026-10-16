@@ -5,7 +5,11 @@ use crate::gb_palette::GbPalette;
 use crate::layout::Layout;
 use crate::platform::Platform;
 
-pub const BRIGHTNESS_MAX: u8 = 9;
+pub const BRIGHTNESS_MAX: u8 = 12;
+
+const OLD_BRIGHTNESS_MAX: u8 = 9;
+
+const ADDED_DIM_STEPS: u8 = BRIGHTNESS_MAX - OLD_BRIGHTNESS_MAX;
 pub const BLUE_LIGHT_MAX: u8 = 9;
 pub const VOLUME_MAX: u8 = 100;
 
@@ -222,7 +226,7 @@ impl Default for SlotState {
         SlotState {
             cart: None,
             cart_platform: None,
-            brightness: 5,
+            brightness: 8,
             blue_light: 0,
             volume: 60,
             volume_hp: 60,
@@ -267,7 +271,7 @@ pub fn read_slot_state(root: &Path) -> SlotState {
 
 pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     let text = format!(
-        "cart={}\ncart_platform={}\nbrightness={}\nblue_light={}\nvolume={}\nvolume_hp={}\nmuted={}\nmuted_hp={}\nclock_set={}\nutc_offset_min={}\nrumble={}\nff_speed={}\nff_sound={}\ncolour_correction={}\nshader_gba={}\nshader_gb={}\neject_save={}\nturbo={}\nrewind={}\ngb_palettes={}\ngb_palette={}\nclock_24h={}\ncart_title={}\nlayout={}\ngb_frame={}\nanalog={}\nstart_favorites={}\nrun_ahead={}\nlcd_ghosting={}\n",
+        "cart={}\ncart_platform={}\nbacklight={}\nblue_light={}\nvolume={}\nvolume_hp={}\nmuted={}\nmuted_hp={}\nclock_set={}\nutc_offset_min={}\nrumble={}\nff_speed={}\nff_sound={}\ncolour_correction={}\nshader_gba={}\nshader_gb={}\neject_save={}\nturbo={}\nrewind={}\ngb_palettes={}\ngb_palette={}\nclock_24h={}\ncart_title={}\nlayout={}\ngb_frame={}\nanalog={}\nstart_favorites={}\nrun_ahead={}\nlcd_ghosting={}\n",
         s.cart.as_deref().unwrap_or(""),
         s.cart_platform.map_or(String::new(), platform_key),
         s.brightness,
@@ -305,6 +309,7 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut cart = None;
     let mut cart_platform = None;
     let mut brightness = None;
+    let mut old_brightness = None;
     let mut blue_light = None;
     let mut volume = None;
     let mut volume_hp = None;
@@ -338,7 +343,8 @@ fn parse(text: &str) -> Option<SlotState> {
         match key {
             "cart" => cart = Some(value.to_string()),
             "cart_platform" => cart_platform = platform_value(value),
-            "brightness" => brightness = Some(level(value, BRIGHTNESS_MAX)?),
+            "backlight" => brightness = Some(level(value, BRIGHTNESS_MAX)?),
+            "brightness" => old_brightness = Some(level(value, OLD_BRIGHTNESS_MAX)?),
             "blue_light" => blue_light = Some(level(value, BLUE_LIGHT_MAX)?),
             "volume" => volume = Some(level(value, VOLUME_MAX)?),
             "volume_hp" => volume_hp = Some(level(value, VOLUME_MAX)?),
@@ -373,7 +379,10 @@ fn parse(text: &str) -> Option<SlotState> {
     Some(SlotState {
         cart: (!cart.is_empty()).then_some(cart),
         cart_platform,
-        brightness: brightness?,
+        brightness: brightness.or(old_brightness.map(|b| match b {
+            0 => 0,
+            b => b + ADDED_DIM_STEPS,
+        }))?,
         blue_light: blue_light?,
         volume: volume?,
         volume_hp: volume_hp.or(volume)?,

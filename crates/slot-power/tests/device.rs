@@ -52,11 +52,32 @@ fn platform(d: &TempDir) -> DevicePlatform {
 fn the_backlight_steps_span_whatever_range_the_kernel_reports() {
     let d = sysfs("255", "87");
     let mut p = platform(&d);
-    p.set_backlight(9);
+    p.set_backlight(12);
     assert_eq!(brightness(&d), 255);
-    p.set_backlight(5);
+    p.set_backlight(8);
     let mid = brightness(&d);
-    assert!((110..=160).contains(&mid), "step 5 of 9 wrote {mid} of 255");
+    assert!(
+        (110..=160).contains(&mid),
+        "step 8 of 12 wrote {mid} of 255"
+    );
+}
+
+#[test]
+fn the_bottom_steps_dim_below_the_old_lowest_without_going_dark() {
+    let d = sysfs("255", "87");
+    let mut p = platform(&d);
+    p.set_backlight(4);
+    let old_lowest = brightness(&d);
+    let mut last = old_lowest;
+    for step in (1..4).rev() {
+        p.set_backlight(step);
+        let now = brightness(&d);
+        assert!(
+            now > 0 && now < last,
+            "step {step} wrote {now} after {last}"
+        );
+        last = now;
+    }
 }
 
 #[test]
@@ -168,7 +189,7 @@ fn dispdbg(d: &TempDir, file: &str) -> String {
 fn a_tree_with_no_backlight_class_drives_the_panel_through_dispdbg() {
     let d = dispdbg_tree();
     let mut p = DevicePlatform::probe(d.path(), PathBuf::from("/mnt/sdcard"));
-    p.set_backlight(9);
+    p.set_backlight(12);
     assert_eq!(dispdbg(&d, "name"), "lcd0");
     assert_eq!(dispdbg(&d, "command"), "setbl");
     assert_eq!(
@@ -187,7 +208,7 @@ fn a_backlight_class_still_wins_over_dispdbg() {
     let dbg = d.path().join("kernel/debug/dispdbg");
     fs::create_dir_all(&dbg).unwrap();
     fs::write(dbg.join("param"), "").unwrap();
-    platform(&d).set_backlight(9);
+    platform(&d).set_backlight(12);
     assert_eq!(brightness(&d), 255);
     assert_eq!(dispdbg(&d, "param"), "", "dispdbg was written to as well");
 }

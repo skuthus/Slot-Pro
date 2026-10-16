@@ -8,7 +8,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use crate::{Battery, Charge, LedState, Platform};
 
-const TOP_STEP: u32 = 9;
+const LEVELS: [u32; 13] = [0, 4, 10, 18, 28, 56, 85, 113, 141, 170, 198, 226, 255];
 
 const DEV_INPUT: &str = "/dev/input";
 
@@ -393,8 +393,8 @@ impl Platform for DevicePlatform {
         let Some(backlight) = &self.backlight else {
             return;
         };
-        let step = u32::from(step).min(TOP_STEP);
-        let value = self.max_brightness * step / TOP_STEP;
+        let level = LEVELS[usize::from(step).min(LEVELS.len() - 1)];
+        let value = (self.max_brightness * level / 255).max(level.min(1));
         let write = |file: PathBuf, body: String| {
             if let Err(e) = fs::write(&file, body) {
                 eprintln!("slot: {}: {e}", file.display());

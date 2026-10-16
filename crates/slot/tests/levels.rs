@@ -3,7 +3,7 @@ mod common;
 use common::{app_playing_in, app_playing_with_volume, boot, tmp_root_with_carts};
 use slot::app::Phase;
 use slot_input::Action;
-use slot_store::read_slot_state;
+use slot_store::{read_slot_state, BRIGHTNESS_MAX};
 use slot_ui::Icon;
 
 #[test]
@@ -14,7 +14,7 @@ fn levels_clamp_and_persist() {
         a.apply(Action::BrightnessUp);
     }
     a.flush_state();
-    assert_eq!(read_slot_state(d.path()).brightness, 9);
+    assert_eq!(read_slot_state(d.path()).brightness, BRIGHTNESS_MAX);
     for _ in 0..20 {
         a.apply(Action::BrightnessDown);
     }

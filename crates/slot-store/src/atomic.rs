@@ -22,9 +22,26 @@ pub(crate) fn sync_dir(path: &Path) {
     if let Some(dir) = path.parent() {
         if let Ok(d) = File::open(dir) {
             let _ = d.sync_all();
+            sync_card(&d);
         }
     }
 }
+
+// vfat's directory fsync can leave a rename's entry unwritten, so a power cut
+// right after a save points the name at clusters already freed.
+#[cfg(target_os = "linux")]
+fn sync_card(dir: &File) {
+    use std::os::unix::io::AsRawFd;
+    extern "C" {
+        fn syncfs(fd: std::ffi::c_int) -> std::ffi::c_int;
+    }
+    unsafe {
+        syncfs(dir.as_raw_fd());
+    }
+}
+
+#[cfg(not(target_os = "linux"))]
+fn sync_card(_dir: &File) {}
 
 fn write_then_rename(tmp: &Path, path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let mut f = File::create(tmp)?;

@@ -135,7 +135,7 @@ fn a_line_the_reader_does_not_know_is_skipped() {
     let d = tmp_root();
     std::fs::write(
         d.path().join("Config/slot.state"),
-        "cart=Emerald\nbrightness=3\nfrom_a_later_build=7\nblue_light=1\nvolume=40\nmuted=1\n\
+        "cart=Emerald\nbacklight=3\nfrom_a_later_build=7\nblue_light=1\nvolume=40\nmuted=1\n\
          no equals sign at all\nclock_set=1\nutc_offset_min=-300\n",
     )
     .unwrap();
@@ -192,7 +192,7 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
         SlotState {
             cart: Some("Emerald".into()),
             cart_platform: None,
-            brightness: 3,
+            brightness: 6,
             blue_light: 1,
             volume: 40,
             volume_hp: 40,
@@ -306,7 +306,7 @@ fn an_older_build_reads_the_new_speed_as_its_own_default() {
 #[test]
 fn an_out_of_range_setting_falls_back_to_its_default() {
     let d = tmp_root();
-    let known = "cart=Emerald\nbrightness=3\nblue_light=1\nvolume=40\nmuted=0\nclock_set=1\nutc_offset_min=0\n";
+    let known = "cart=Emerald\nbacklight=3\nblue_light=1\nvolume=40\nmuted=0\nclock_set=1\nutc_offset_min=0\n";
     for bad in [
         "rumble=2\nff_speed=5\nff_sound=9\n",
         "rumble=\nff_speed=1\nff_sound=on\n",
@@ -376,7 +376,7 @@ fn an_empty_slot_writes_an_empty_platform() {
 #[test]
 fn an_unreadable_platform_reads_as_a_card_that_never_said() {
     let d = tmp_root();
-    let known = "cart=Tetris\nbrightness=3\nblue_light=1\nvolume=40\nmuted=0\nclock_set=1\nutc_offset_min=0\n";
+    let known = "cart=Tetris\nbacklight=3\nblue_light=1\nvolume=40\nmuted=0\nclock_set=1\nutc_offset_min=0\n";
     for (line, want) in [
         ("cart_platform=\n", None),
         ("cart_platform=nes\n", None),
@@ -621,4 +621,24 @@ fn a_state_file_from_before_favorites_starts_off_and_keeps_its_values() {
     assert!(!s.start_favorites);
     assert!(s.analog);
     assert_eq!(s.cart.as_deref(), Some("Emerald"));
+}
+
+#[test]
+fn a_brightness_from_the_nine_step_scale_keeps_its_light_on_the_twelve_step_one() {
+    let d = tmp_root();
+    let rest = "blue_light=1\nvolume=40\nmuted=0\nclock_set=1\nutc_offset_min=0\n";
+    for (line, want) in [
+        ("brightness=0\n", 0),
+        ("brightness=1\n", 4),
+        ("brightness=9\n", 12),
+        ("backlight=1\n", 1),
+        ("brightness=1\nbacklight=2\n", 2),
+    ] {
+        std::fs::write(
+            d.path().join("Config/slot.state"),
+            format!("cart=Emerald\n{line}{rest}"),
+        )
+        .unwrap();
+        assert_eq!(read_slot_state(d.path()).brightness, want, "read {line:?}");
+    }
 }
