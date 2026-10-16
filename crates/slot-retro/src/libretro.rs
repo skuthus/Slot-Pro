@@ -35,6 +35,7 @@ struct Host {
     net: Link,
     net_peer: Option<u16>,
     audio_status: Option<AudioBufferStatusFn>,
+    av_enable: c_int,
     options: std::collections::HashMap<String, std::ffi::CString>,
     options_dirty: bool,
     declared: std::collections::HashMap<String, Vec<String>>,
@@ -200,6 +201,12 @@ unsafe extern "C" fn environment(cmd: c_uint, data: *mut c_void) -> bool {
             }
             let cb = std::ptr::read(data as *const AudioBufferStatusCallback);
             with_host(|h| h.audio_status = cb.callback).is_some()
+        }
+        GET_AUDIO_VIDEO_ENABLE => {
+            if data.is_null() {
+                return false;
+            }
+            with_host(|h| *(data as *mut c_int) = h.av_enable).is_some()
         }
         SET_NETPACKET_INTERFACE => {
             if data.is_null() {
@@ -481,6 +488,7 @@ impl LibretroCore {
             net: Link::default(),
             net_peer: None,
             audio_status: None,
+            av_enable: AV_VIDEO | AV_AUDIO,
             options: std::collections::HashMap::new(),
             options_dirty: false,
             declared: std::collections::HashMap::new(),
@@ -602,6 +610,13 @@ impl RetroCore for LibretroCore {
     fn set_frame_skip(&mut self, skip: bool) {
         let _a = Active::bind(&mut self.host);
         unsafe { report_audio_status(skip) };
+    }
+
+    fn set_rolled_back(&mut self, rolled_back: bool) {
+        self.host.av_enable = match rolled_back {
+            true => AV_VIDEO | AV_RUN_AHEAD_STATES,
+            false => AV_VIDEO | AV_AUDIO,
+        };
     }
 
     fn video_xrgb8888(&self) -> &[u8] {
@@ -762,6 +777,7 @@ mod tests {
             net: Link::default(),
             net_peer: None,
             audio_status: None,
+            av_enable: AV_VIDEO | AV_AUDIO,
             options,
             options_dirty,
             declared: HashMap::new(),
@@ -966,6 +982,36 @@ mod tests {
                 "the skip and the draw did not read as an underrun and a healthy buffer"
             );
         });
+    }
+
+    #[test]
+    fn run_ahead_frames_read_as_silent_with_states_kept_for_rollback() {
+        let mut host = host_with(HashMap::new(), false);
+        let ask = |host: &mut Host| {
+            let _active = Active::bind(host);
+            let mut flags: c_int = -1;
+            let answered = unsafe {
+                environment(
+                    GET_AUDIO_VIDEO_ENABLE,
+                    &mut flags as *mut c_int as *mut c_void,
+                )
+            };
+            assert!(answered, "the core was told nothing");
+            flags
+        };
+        assert_eq!(ask(&mut host), AV_VIDEO | AV_AUDIO);
+        host.av_enable = AV_VIDEO | AV_RUN_AHEAD_STATES;
+        let flags = ask(&mut host);
+        assert_eq!(
+            flags & AV_AUDIO,
+            0,
+            "thrown-away frames still asked for audio"
+        );
+        assert_ne!(
+            flags & AV_RUN_AHEAD_STATES,
+            0,
+            "run-ahead's states read as real ones"
+        );
     }
 
     #[test]

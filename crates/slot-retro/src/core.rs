@@ -83,6 +83,9 @@ pub trait RetroCore: Send {
     }
     fn set_option(&mut self, _key: &str, _value: &str) {}
     fn set_frame_skip(&mut self, _skip: bool) {}
+    /// Marks the frames, saves and loads that follow as run-ahead's: their audio is thrown away
+    /// and the core will be rolled back, so it can keep its audio state on the real timeline.
+    fn set_rolled_back(&mut self, _rolled_back: bool) {}
     fn video_xrgb8888(&self) -> &[u8];
     fn take_audio(&mut self) -> Vec<i16>;
     fn serialize(&mut self) -> Result<Vec<u8>, CoreError>;

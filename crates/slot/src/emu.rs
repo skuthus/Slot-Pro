@@ -1137,10 +1137,12 @@ fn run_ahead(core: &mut dyn RetroCore, input: ButtonMask, ahead: u8, shown: bool
     core.set_frame_skip(true);
     core.run_frame(input);
     let real = core.take_audio();
+    core.set_rolled_back(true);
     let state = match core.serialize() {
         Ok(state) => state,
         Err(e) => {
             eprintln!("slot: run-ahead: {e}");
+            core.set_rolled_back(false);
             return real;
         }
     };
@@ -1152,6 +1154,7 @@ fn run_ahead(core: &mut dyn RetroCore, input: ButtonMask, ahead: u8, shown: bool
     if let Err(e) = core.unserialize(&state) {
         eprintln!("slot: run-ahead: {e}");
     }
+    core.set_rolled_back(false);
     real
 }
 

@@ -8,6 +8,7 @@
 
 ### Fixed
 
+- Gambatte with Run-Ahead no longer buzzes or sounds rough, and LCD Ghosting keeps blending with it on. Run-Ahead's rollbacks used to reset Gambatte's audio resampler every frame.
 - Saves and states reach the card before slot carries on, so a power cut right after a save can no longer leave the card read-only with the save's file entry pointing at freed space.
 
 ## 1.1.1 (2026-10-15)

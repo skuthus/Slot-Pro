@@ -1,0 +1,88 @@
+--- a/libgambatte/libretro/libretro.cpp	2026-10-16 09:04:38
++++ b/libgambatte/libretro/libretro.cpp	2026-10-16 09:04:38
+@@ -98,6 +98,23 @@
+ {
+    libretro_samples_count = 0;
+    libretro_frames_count  = 0;
++}
++
++/* Run-ahead rolls the core back every frame. A frontend that reports
++ * RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE marks the frames it will throw
++ * away with the audio bit clear, and the saves and loads that only serve
++ * run-ahead with bit 2. Those frames skip the resampler, and those loads
++ * keep the resampler, frame pacing and frame blending on the real timeline
++ * instead of resetting them, which would pop the audio every frame. */
++static uint64_t runahead_samples_count = 0;
++static uint64_t runahead_frames_count  = 0;
++
++static int av_enable(void)
++{
++   int flags = 3;
++   if (!environ_cb || !environ_cb(RETRO_ENVIRONMENT_GET_AUDIO_VIDEO_ENABLE, &flags))
++      flags = 3;
++   return flags;
+ }
+ 
+ //Dual mode runs two GBCs side by side.
+@@ -1902,6 +1919,11 @@
+       return false;
+ 
+    gb.saveState(data);
++   if (av_enable() & 4)
++   {
++      runahead_samples_count = libretro_samples_count;
++      runahead_frames_count  = libretro_frames_count;
++   }
+    return true;
+ }
+ 
+@@ -1917,6 +1939,13 @@
+     * state. */
+    if (!gb.loadState(data, size))
+       return false;
++
++   if (av_enable() & 4)
++   {
++      libretro_samples_count = runahead_samples_count;
++      libretro_frames_count  = runahead_frames_count;
++      return true;
++   }
+ 
+    /* The audio resampler internal state (blipper integrator,
+     * CC accumulator/highpass) and the frame-blending history
+@@ -2938,10 +2967,13 @@
+       int16_t i16[2 * SOUND_BUFF_SIZE];
+    } static sound_buf;
+    unsigned samples = SOUND_SAMPLES_PER_RUN;
++   bool audio_on    = (av_enable() & 2) != 0;
+ 
+    while (gb.runFor(video_buf, VIDEO_PITCH, sound_buf.u32, SOUND_BUFF_SIZE, samples) == -1)
+    {
+-      if (use_cc_resampler)
++      if (!audio_on)
++         ;
++      else if (use_cc_resampler)
+          CC_renderaudio((audio_frame_t*)sound_buf.u32, samples);
+       else
+       {
+@@ -2965,7 +2997,9 @@
+ 
+    video_cb(video_buf, VIDEO_WIDTH, VIDEO_HEIGHT, VIDEO_PITCH * sizeof(gambatte::video_pixel_t));
+ 
+-   if (use_cc_resampler)
++   if (!audio_on)
++      ;
++   else if (use_cc_resampler)
+       CC_renderaudio((audio_frame_t*)sound_buf.u32, samples);
+    else
+    {
+@@ -2975,7 +3009,8 @@
+       audio_out_buffer_read_blipper(read_avail);
+    }
+    libretro_samples_count += samples;
+-   audio_upload_samples();
++   if (audio_on)
++      audio_upload_samples();
+ 
+    /* Apply any 'pending' rumble effects */
+    if (rumble_active)

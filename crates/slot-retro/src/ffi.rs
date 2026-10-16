@@ -17,6 +17,11 @@ pub const GET_LOG_INTERFACE: c_uint = 27;
 pub const GET_SAVE_DIRECTORY: c_uint = 31;
 pub const SET_AUDIO_BUFFER_STATUS_CALLBACK: c_uint = 62;
 pub const SET_NETPACKET_INTERFACE: c_uint = 78;
+pub const GET_AUDIO_VIDEO_ENABLE: c_uint = 47 | 0x10000;
+
+pub const AV_VIDEO: c_int = 1;
+pub const AV_AUDIO: c_int = 2;
+pub const AV_RUN_AHEAD_STATES: c_int = 4;
 
 pub const RUMBLE_STRONG: c_uint = 0;
 pub const RUMBLE_WEAK: c_uint = 1;
