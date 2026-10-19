@@ -612,6 +612,11 @@ impl RetroCore for LibretroCore {
         unsafe { report_audio_status(skip) };
     }
 
+    fn reset(&mut self) {
+        let _a = Active::bind(&mut self.host);
+        unsafe { (self.api.reset)() };
+    }
+
     fn set_rolled_back(&mut self, rolled_back: bool) {
         self.host.av_enable = match rolled_back {
             true => AV_VIDEO | AV_RUN_AHEAD_STATES,

@@ -42,6 +42,7 @@ pub enum QuickRow {
     LoadState,
     Shader,
     GameControls,
+    ResetGame,
     EjectGame,
     GameLayout,
     GameRemapA,
@@ -55,7 +56,7 @@ pub enum QuickRow {
 }
 
 impl QuickRow {
-    pub const ALL: [QuickRow; 45] = [
+    pub const ALL: [QuickRow; 46] = [
         QuickRow::FastForward,
         QuickRow::FastForwardSound,
         QuickRow::Screen,
@@ -91,6 +92,7 @@ impl QuickRow {
         QuickRow::LoadState,
         QuickRow::Shader,
         QuickRow::GameControls,
+        QuickRow::ResetGame,
         QuickRow::EjectGame,
         QuickRow::GameLayout,
         QuickRow::GameRemapA,
@@ -145,12 +147,13 @@ impl QuickRow {
         QuickRow::RemapY,
     ];
 
-    pub const PAUSE: [QuickRow; 6] = [
+    pub const PAUSE: [QuickRow; 7] = [
         QuickRow::Resume,
         QuickRow::SaveState,
         QuickRow::LoadState,
         QuickRow::Shader,
         QuickRow::GameControls,
+        QuickRow::ResetGame,
         QuickRow::EjectGame,
     ];
 
@@ -216,6 +219,7 @@ impl QuickRow {
             | QuickRow::LoadState
             | QuickRow::Shader
             | QuickRow::GameControls
+            | QuickRow::ResetGame
             | QuickRow::EjectGame => &QuickRow::PAUSE,
             QuickRow::GameLayout
             | QuickRow::GameRemapA
@@ -290,6 +294,7 @@ impl QuickRow {
             QuickRow::SaveState => "Save State",
             QuickRow::LoadState => "Load State",
             QuickRow::Shader => "Shader",
+            QuickRow::ResetGame => "Reset Game",
             QuickRow::EjectGame => "Eject Game",
             QuickRow::GameLayout => "Layout",
         }
@@ -307,6 +312,7 @@ impl QuickRow {
                 | QuickRow::Resume
                 | QuickRow::SaveState
                 | QuickRow::LoadState
+                | QuickRow::ResetGame
                 | QuickRow::EjectGame
         )
     }

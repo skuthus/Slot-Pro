@@ -123,6 +123,7 @@ fn the_rows_run_in_the_order_the_user_chose() {
             "Load State",
             "Shader",
             "Controls",
+            "Reset Game",
             "Eject Game"
         ]
     );
@@ -144,11 +145,12 @@ fn the_rows_run_in_the_order_the_user_chose() {
         QuickRow::Resume,
         QuickRow::SaveState,
         QuickRow::LoadState,
+        QuickRow::ResetGame,
         QuickRow::EjectGame,
     ] {
         assert!(opens.contains(&row), "{row:?} does not open");
     }
-    assert_eq!(opens.len(), 10);
+    assert_eq!(opens.len(), 11);
     for page in [
         &QuickRow::MAIN[..],
         &QuickRow::SCREEN[..],

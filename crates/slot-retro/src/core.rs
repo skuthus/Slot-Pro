@@ -82,6 +82,8 @@ pub trait RetroCore: Send {
         self.run_frame(p1);
     }
     fn set_option(&mut self, _key: &str, _value: &str) {}
+    /// Restarts the game from boot, as a power cycle would. The cartridge save is kept.
+    fn reset(&mut self) {}
     fn set_frame_skip(&mut self, _skip: bool) {}
     /// Marks the frames, saves and loads that follow as run-ahead's: their audio is thrown away
     /// and the core will be rolled back, so it can keep its audio state on the real timeline.

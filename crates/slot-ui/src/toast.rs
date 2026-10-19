@@ -28,13 +28,14 @@ pub enum Toast {
     CardUnwritable,
     FavoriteAdded,
     FavoriteRemoved,
+    GameReset,
     Palette(GbPalette),
     SlotSaved(usize),
     SlotLoaded(usize),
 }
 
 impl Toast {
-    const FIXED: [Toast; 20] = [
+    const FIXED: [Toast; 21] = [
         Toast::StateSaved,
         Toast::StateLoaded,
         Toast::NeedsGpsp,
@@ -55,6 +56,7 @@ impl Toast {
         Toast::CardUnwritable,
         Toast::FavoriteAdded,
         Toast::FavoriteRemoved,
+        Toast::GameReset,
     ];
 
     pub fn all() -> Vec<Toast> {
@@ -108,6 +110,7 @@ impl Toast {
             Toast::CardUnwritable => "Can't write to SD card",
             Toast::FavoriteAdded => "Favorite Added",
             Toast::FavoriteRemoved => "Favorite Removed",
+            Toast::GameReset => "Game Reset",
             Toast::Palette(p) => p.label(),
             Toast::SlotSaved(n) => ["Saved to Slot 1", "Saved to Slot 2", "Saved to Slot 3"]
                 .get(n)

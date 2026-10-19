@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Reset Game in the in-game menu restarts the game from boot, keeping its save. X undoes it within 30 seconds.
+
+### Changed
+
+- The Wi-Fi radio stays off except during link play, to save battery. BaseOS turns it on at boot; slot turns it back off.
+
 ## 1.1.3 (2026-10-19)
 
 ### Fixed

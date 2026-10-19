@@ -766,6 +766,7 @@ impl App {
             | QuickRow::Resume
             | QuickRow::SaveState
             | QuickRow::LoadState
+            | QuickRow::ResetGame
             | QuickRow::EjectGame => None,
             QuickRow::GbPalettes => Some(QuickValue::flag(self.state.gb_palettes)),
             QuickRow::GbaShader => Some(shader_value(self.state.shader_gba)),
@@ -3593,6 +3594,10 @@ impl App {
                 self.open_slots(SlotMode::Load, true);
             }
             QuickRow::GameControls => self.pause = row.child(),
+            QuickRow::ResetGame => {
+                self.pause = None;
+                self.reset_game();
+            }
             QuickRow::EjectGame => {
                 self.pause = None;
                 self.eject();
@@ -3802,6 +3807,21 @@ impl App {
         }
         self.hud.toast(Toast::SlotLoaded(slot), self.now());
         true
+    }
+
+    fn reset_game(&mut self) {
+        if !self.may_load_state() {
+            return self.refuse();
+        }
+        let Some(snapshot) = &self.snapshot else {
+            return;
+        };
+        let prior = snapshot.state();
+        snapshot.reset();
+        if let Some(prior) = prior {
+            self.pending = Some((PendingUndo::Load { prior }, self.now()));
+        }
+        self.hud.toast(Toast::GameReset, self.now());
     }
 
     fn load_file(&mut self, state: &Path) -> bool {
