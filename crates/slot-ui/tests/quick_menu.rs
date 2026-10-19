@@ -204,6 +204,7 @@ fn the_values_read_as_the_menu_prints_them() {
             "Dandelion",
             "Teal",
             "Atomic Purple",
+            "Black",
             "Global",
             "Custom"
         ]

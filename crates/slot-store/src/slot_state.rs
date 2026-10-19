@@ -64,10 +64,11 @@ pub enum GbFrame {
     Dandelion,
     Teal,
     AtomicPurple,
+    Black,
 }
 
 impl GbFrame {
-    pub const ALL: [GbFrame; 7] = [
+    pub const ALL: [GbFrame; 8] = [
         GbFrame::Off,
         GbFrame::Berry,
         GbFrame::Grape,
@@ -75,6 +76,7 @@ impl GbFrame {
         GbFrame::Dandelion,
         GbFrame::Teal,
         GbFrame::AtomicPurple,
+        GbFrame::Black,
     ];
 
     pub fn name(self) -> &'static str {
@@ -86,6 +88,7 @@ impl GbFrame {
             GbFrame::Dandelion => "dandelion",
             GbFrame::Teal => "teal",
             GbFrame::AtomicPurple => "atomic_purple",
+            GbFrame::Black => "black",
         }
     }
 

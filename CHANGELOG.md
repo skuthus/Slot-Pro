@@ -4,6 +4,7 @@
 
 ### Added
 
+- Black GBC Frame: a dark gray shell, after Atomic Purple.
 - Reset Game in the in-game menu restarts the game from boot, keeping its save. X undoes it within 30 seconds.
 
 ### Changed

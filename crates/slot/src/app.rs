@@ -736,6 +736,7 @@ impl App {
                 GbFrame::Dandelion => QuickValue::Dandelion,
                 GbFrame::Teal => QuickValue::Teal,
                 GbFrame::AtomicPurple => QuickValue::AtomicPurple,
+                GbFrame::Black => QuickValue::Black,
             }),
             QuickRow::GameLayout => Some(match self.game_layout {
                 Some(_) => QuickValue::Custom,

@@ -34,6 +34,7 @@ fn shell(frame: GbFrame) -> Option<Shell> {
         GbFrame::Dandelion => ([0xf2, 0xcc, 0x1a], true),
         GbFrame::Teal => ([0x00, 0xa3, 0xb0], false),
         GbFrame::AtomicPurple => ([0x6c, 0x5d, 0x93], false),
+        GbFrame::Black => ([0x34, 0x34, 0x39], false),
     };
     Some(Shell { fill, light })
 }

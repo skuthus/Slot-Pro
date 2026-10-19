@@ -364,12 +364,13 @@ pub enum QuickValue {
     Dandelion,
     Teal,
     AtomicPurple,
+    Black,
     Global,
     Custom,
 }
 
 impl QuickValue {
-    pub const ALL: [QuickValue; 36] = [
+    pub const ALL: [QuickValue; 37] = [
         QuickValue::Speed2,
         QuickValue::Speed3,
         QuickValue::Speed4,
@@ -404,6 +405,7 @@ impl QuickValue {
         QuickValue::Dandelion,
         QuickValue::Teal,
         QuickValue::AtomicPurple,
+        QuickValue::Black,
         QuickValue::Global,
         QuickValue::Custom,
     ];
@@ -448,6 +450,7 @@ impl QuickValue {
             QuickValue::Dandelion => "Dandelion",
             QuickValue::Teal => "Teal",
             QuickValue::AtomicPurple => "Atomic Purple",
+            QuickValue::Black => "Black",
             QuickValue::Global => "Global",
             QuickValue::Custom => "Custom",
         }

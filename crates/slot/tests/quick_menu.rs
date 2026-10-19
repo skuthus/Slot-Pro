@@ -808,6 +808,6 @@ fn the_gbc_frame_row_steps_through_the_shells_and_saves() {
     press(&mut a, Btn::Left);
     assert_eq!(
         read_slot_state(d.path()).gb_frame,
-        slot_store::GbFrame::AtomicPurple
+        slot_store::GbFrame::Black
     );
 }
