@@ -37,6 +37,7 @@ reset() {
 	make_fake wpa_cli "$TMP/cli.log" 'echo "wpa_state=${FAKE_STATE:-COMPLETED}"'
 	make_fake wpa_supplicant "$TMP/sup.log"
 	make_fake ip "$TMP/ip.log"
+	make_fake rfkill "$TMP/rfkill.log"
 	make_fake insmod "$TMP/mod.log"
 	make_fake legacy "$TMP/legacy.log"
 }
@@ -47,7 +48,8 @@ run() {
 		AGS_MODULES="$TMP/modules" AGS_NET_SYS="$TMP/net" AGS_RUN="$TMP/run" \
 		AGS_CTRL_DIR="$TMP/ctrl" AGS_PROC_MODULES="$TMP/proc-modules" \
 		AGS_WPA_SUPPLICANT="$TMP/bin/wpa_supplicant" AGS_WPA_CLI="$TMP/bin/wpa_cli" \
-		AGS_IP="$TMP/bin/ip" AGS_INSMOD="$TMP/bin/insmod" \
+		AGS_IP="$TMP/bin/ip" AGS_INSMOD="$TMP/bin/insmod" AGS_RFKILL="$TMP/bin/rfkill" \
+		AGS_LINK_BOOT_WAIT_S="${BOOT_WAIT_S:-2}" \
 		AGS_LINK_WAIT_S="${WAIT_S:-1}" AGS_LINK_PIN_WAIT_S="${WAIT_S:-1}" \
 		sh "$SCRIPT" "$@"
 }
@@ -93,6 +95,36 @@ reset yes
 run absent link cool && rc=0 || rc=$?
 [ "$rc" = 0 ] || fail "cool exited $rc"
 [ -e "$TMP/mod.log" ] && fail "cool touched the driver"
+grep -q 'link set wlan0 down' "$TMP/ip.log" || fail "cool left wlan0 up"
+grep -q 'block wifi' "$TMP/rfkill.log" || fail "cool left the radio unblocked"
+
+reset yes
+run absent link host >/dev/null
+run absent link cool
+grep -q 'wlan0 down' "$TMP/ip.log" && fail "cool took the radio from a session"
+
+reset yes
+run absent link warm >/dev/null
+run absent link cool
+run absent link warm >/dev/null
+[ "$(grep -c 'unblock wifi' "$TMP/rfkill.log")" = 2 ] || fail "warm after cool did not unblock the radio"
+grep -q 'link set wlan0 up' "$TMP/ip.log" || fail "warm did not raise wlan0"
+
+reset yes
+echo 0x1003 > "$TMP/net/wlan0/flags"
+run absent link boot
+grep -q 'link set wlan0 down' "$TMP/ip.log" || fail "boot left the raised radio up"
+
+reset yes
+echo 0x1002 > "$TMP/net/wlan0/flags"
+run absent link boot
+grep -q 'wlan0 down' "$TMP/ip.log" 2>/dev/null && fail "boot cooled a radio BaseOS never raised"
+
+reset yes
+echo 0x1003 > "$TMP/net/wlan0/flags"
+: > "$TMP/run/slotlink.warm"
+run absent link boot
+grep -q 'wlan0 down' "$TMP/ip.log" 2>/dev/null && fail "boot cooled a radio link play had warmed"
 
 reset no
 run absent link warm >/dev/null || true

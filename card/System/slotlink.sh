@@ -15,10 +15,13 @@ LINK_RESCAN="${AGS_LINK_RESCAN:-2}"
 LINK_AP_GLOBAL="${AGS_LINK_AP_GLOBAL:-}"
 LINK_TRACE="${AGS_LINK_TRACE:-}"
 LINK_MARK="$RUN/slotlink.session"
+WARM_MARK="$RUN/slotlink.warm"
+LINK_BOOT_WAIT_S="${AGS_LINK_BOOT_WAIT_S:-180}"
 
 WPA_SUPPLICANT="${AGS_WPA_SUPPLICANT:-wpa_supplicant}"
 WPA_CLI="${AGS_WPA_CLI:-wpa_cli}"
 IP="${AGS_IP:-ip}"
+RFKILL="${AGS_RFKILL:-rfkill}"
 UPTIME="${AGS_UPTIME:-/proc/uptime}"
 CTRL_DIR="${AGS_CTRL_DIR:-/var/run/wpa_supplicant}"
 
@@ -40,7 +43,8 @@ wait_dev() {
 wifi_up() {
 	wait_dev wlan0 40 || return 0
 	trace "wlan0 present"
-	rfkill unblock wifi 2>/dev/null || true
+	: > "$WARM_MARK"
+	$RFKILL unblock wifi 2>/dev/null || true
 	$IP link set wlan0 up 2>/dev/null || true
 }
 
@@ -194,14 +198,44 @@ link_warm() {
 	wait_dev wlan1 4
 }
 
+# The radio idles powered while nothing uses it, so between link sessions it stays down and
+# blocked. A session in progress keeps it.
+link_cool() {
+	[ -e "$LINK_MARK" ] && return 0
+	trace "cool"
+	/bin/rm -f "$WARM_MARK"
+	$IP link set wlan1 down 2>/dev/null || true
+	$IP link set wlan0 down 2>/dev/null || true
+	$RFKILL block wifi 2>/dev/null || true
+	return 0
+}
+
+# BaseOS raises wlan0 in the background after slot starts. Wait for that, then cool it, unless
+# link play has warmed the radio first.
+link_boot() {
+	w=0
+	while [ "$w" -lt "$LINK_BOOT_WAIT_S" ]; do
+		[ -e "$WARM_MARK" ] && return 0
+		flags=$(cat "$NET/wlan0/flags" 2>/dev/null) || flags=
+		if [ -n "$flags" ] && [ $((flags & 1)) -eq 1 ]; then
+			link_cool
+			return 0
+		fi
+		sleep 1
+		w=$((w + 1))
+	done
+	return 0
+}
+
 case "${1:-} ${2:-}" in
 "link host") link_host ;;
 "link join") link_join ;;
 "link down") link_down ;;
 "link warm") link_warm ;;
-"link cool") exit 0 ;;
+"link cool") link_cool ;;
+"link boot") link_boot ;;
 *)
-	echo "usage: slotlink.sh link [host|join|down|warm|cool]" >&2
+	echo "usage: slotlink.sh link [host|join|down|warm|cool|boot]" >&2
 	exit 2
 	;;
 esac
