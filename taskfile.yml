@@ -113,24 +113,21 @@ tasks:
         echo "fetched {{.GPSP_HOST}}"
 
   core:gambatte:host:
-    desc: Fetch the host Gambatte core from the libretro buildbot
+    desc: Build the host Gambatte core from the pinned source archive and cores/gambatte's patches
     status:
       - test -f {{.GAMBATTE_HOST}}
+      - test "$(cat {{.GAMBATTE_HOST}}.meta 2>/dev/null)" = "$(sh cores/gambatte/build.sh stamp {{.GAMBATTE_COMMIT}})"
     cmds:
       - |
         set -euo pipefail
-        case "$(uname -m)" in
-          arm64)  arch=arm64 ;;
-          x86_64) arch=x86_64 ;;
-          *) echo "unsupported arch $(uname -m)" >&2; exit 1 ;;
-        esac
         mkdir -p vendor
-        curl -fsSL -o vendor/gambatte-host.zip \
-          "https://buildbot.libretro.com/nightly/apple/osx/${arch}/latest/gambatte_libretro.dylib.zip"
-        unzip -o -q vendor/gambatte-host.zip -d vendor
-        rm -f vendor/gambatte-host.zip
-        file {{.GAMBATTE_HOST}} | grep -q Mach-O
-        echo "fetched {{.GAMBATTE_HOST}}"
+        if [ "$(cat vendor/gambatte-src.sha 2>/dev/null)" != "{{.GAMBATTE_COMMIT}}" ]; then
+          curl -fsSL -o vendor/gambatte-src.tar.gz \
+            "https://github.com/libretro/gambatte-libretro/archive/{{.GAMBATTE_COMMIT}}.tar.gz"
+        fi
+      - sh cores/gambatte/build.sh host {{.GAMBATTE_COMMIT}} vendor/gambatte-src.tar.gz target/gambatte-host {{.GAMBATTE_HOST}}
+      - file {{.GAMBATTE_HOST}} | grep -q Mach-O
+      - 'echo "built {{.GAMBATTE_HOST}}"'
 
   core:update:
     desc: Rebuild mGBA and re-fetch gpSP for this host even if they are already vendored

@@ -7,7 +7,7 @@ use common::{repo_root, session_with_platform, tmp_root_with_gb_carts};
 use slot::app::Phase;
 use slot::session::Session;
 use slot_input::{Btn, Millis, RawEvent};
-use slot_store::{write_slot_state, GbPalette, SlotState};
+use slot_store::{write_slot_state, GbPalette, Platform, SlotState};
 use tempfile::TempDir;
 
 const FRAME_MS: Millis = 16;
@@ -84,22 +84,17 @@ fn the_chord_recolours_the_running_game() {
         eprintln!("no Catrap on this machine's card, skipping");
         return;
     };
-    write_slot_state(
-        d.path(),
-        &SlotState {
-            gb_palettes: true,
-            gb_palette: GbPalette::parse("SGB 4-H").unwrap(),
-            ..SlotState::default()
-        },
-    )
-    .expect("write slot.state");
+    write_slot_state(d.path(), &SlotState::default()).expect("write slot.state");
+    let last_community = GbPalette::parse("Link's Awakening SGB");
+    slot_store::write_game_palette(d.path(), Platform::Gb, "Catrap", last_community)
+        .expect("write the game's palette");
     let (mut s, _motor) = session_with_platform(d.path());
     let mut now = 0;
     play(&mut s, &mut now);
     until(
         &mut s,
         &mut now,
-        "a title screen in SGB 4-H's colours",
+        "a title screen in Link's Awakening SGB's colours",
         |f| mean_saturation(f) > 6.0,
     );
 
@@ -112,8 +107,17 @@ fn the_chord_recolours_the_running_game() {
         event(&mut s, ev, &mut now);
     }
     assert_eq!(
-        s.app().gb_palette().map(GbPalette::core_name),
-        Some("Grayscale")
+        s.app()
+            .game_palette()
+            .and_then(|p| p.chosen)
+            .map(GbPalette::core_name),
+        Some("Grayscale"),
+        "the console palettes do not follow the community ones"
+    );
+    assert_eq!(
+        slot_store::read_game_palette(d.path(), Platform::Gb, "Catrap"),
+        GbPalette::parse("Grayscale"),
+        "the choice was not kept for the game"
     );
     until(&mut s, &mut now, "the picture to turn to Grayscale", |f| {
         mean_saturation(f) < 4.0

@@ -219,20 +219,53 @@ fn a_linked_game_never_takes_a_named_palette() {
     bytes[0x146] = 0x03;
     let rom = d.path().join("sgb.gb");
     std::fs::write(&rom, bytes).unwrap();
-    let p = slot_store::GbPalette::DEFAULT;
     let gb = slot_store::Platform::Gb;
-    assert_eq!(slot::core::palette_for(Some(p), gb, &rom, None), Some(p));
+    let game = |link, platform| {
+        slot::core::game_palette(d.path(), platform, "sgb", &rom, link, Core::Gambatte, true)
+    };
+    assert!(game(None, gb).is_some());
     for player in [0, 1] {
         assert_eq!(
-            slot::core::palette_for(Some(p), gb, &rom, Some(player)),
+            game(Some(player), gb),
             None,
             "player {player}: a linked pair would run two models of one cart"
         );
     }
-    assert_eq!(slot::core::palette_for(None, gb, &rom, None), None);
+    assert_eq!(game(None, slot_store::Platform::Gba), None);
+}
+
+#[test]
+fn super_game_boy_carts_keep_their_own_colours_on_mgba_until_one_is_chosen() {
+    let d = tempfile::tempdir().unwrap();
+    let mut bytes = vec![0u8; 0x8000];
+    bytes[0x146] = 0x03;
+    bytes[0x14B] = 0x33;
+    let rom = d.path().join("sgb.gb");
+    std::fs::write(&rom, bytes).unwrap();
+    let gb = slot_store::Platform::Gb;
+    let on_mgba =
+        slot::core::game_palette(d.path(), gb, "sgb", &rom, None, Core::Mgba, true).unwrap();
+    assert!(on_mgba.sgb);
     assert_eq!(
-        slot::core::palette_for(Some(p), slot_store::Platform::Gba, &rom, None),
-        None
+        on_mgba.shown(),
+        None,
+        "Auto should leave the colours to the cart"
+    );
+    let on_gambatte =
+        slot::core::game_palette(d.path(), gb, "sgb", &rom, None, Core::Gambatte, true).unwrap();
+    assert!(
+        !on_gambatte.sgb,
+        "Gambatte has no Super Game Boy to hand the colours to"
+    );
+    let hollow = slot_store::GbPalette::parse("Hollow");
+    slot_store::write_game_palette(d.path(), gb, "sgb", hollow).unwrap();
+    let chosen =
+        slot::core::game_palette(d.path(), gb, "sgb", &rom, None, Core::Mgba, true).unwrap();
+    assert_eq!(chosen.shown(), hollow);
+    assert_eq!(
+        slot_store::default_for_game(d.path(), "sgb", gb),
+        Core::Gambatte,
+        "the ROM is not under Games, so nothing marks it as a Super Game Boy cart"
     );
 }
 

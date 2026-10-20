@@ -20,14 +20,17 @@ by Brandon T. Kowalski.
   24 hour clock.
 - **Three save slots per game**, each with a screenshot. Open them with SELECT on the carousel or
   from the in-game menu.
-- **In-game menu** (tap MENU): resume, save and load states, shaders, controls and eject.
+- **In-game menu** (tap MENU): resume, save and load states, shaders, controls, reset and eject.
 - **Button remapping**, globally or per game, for A, B, L, R, SELECT, START, X and Y.
 - **Analog Mode**, which plays like a real GBA: no save states, menus, rewind, fast forward, turbo
   or resume. Only the game's own save survives power off.
-- **GBC Frame**, which surrounds GB and GBC games with a Game Boy Color shell in six colors.
+- **GBC Frame**, which surrounds GB and GBC games with a Game Boy Color shell in seven colors.
+- **Game Boy palettes**: every GB game gets its own colors. Auto uses the Game Boy Color's or
+  Super Game Boy's colors for the game, or a palette picked for it, and Super Game Boy games show
+  the colors they send. SELECT + L2 / R2 picks from 65 palettes for that game alone, including 17
+  community favorites from Lospec.
 - **Display options**: screen shaders including Authentic GBC (GBC colors, pixel grid, see-through
-  pixels and LCD ghosting), Game Boy palettes, and color correction for GBA only, GB and GBC only,
-  all games, or none.
+  pixels and LCD ghosting), and color correction for GBA only, GB and GBC only, all games, or none.
 - **Power button**: tap for Sleep, Restart or Power Off. Hold to save and shut down.
 - **Fast boot**: compiled shaders are cached on the card, and a resumed game loads while the screen
   starts.
@@ -84,7 +87,7 @@ outside it.
 |             | X (after a save or load)  | Undo, within 30 seconds                             |
 |             | SELECT + B / A            | Previous / next shader                              |
 |             | SELECT + Y                | Next color correction mode                          |
-|             | SELECT + L2 / R2          | Previous / next Game Boy palette                    |
+|             | SELECT + L2 / R2          | Previous / next palette for this GB game            |
 |             | SELECT + MENU             | Link with another device                            |
 |             | Hold L2 / Hold R2         | Rewind / fast forward (double tap R2 to lock)       |
 |             | Hold X / Y                | Turbo A / B                                         |
@@ -112,6 +115,8 @@ task dist:device   # build the SD card tree for H700 devices into ./dist-device
   [Gambatte](https://github.com/libretro/gambatte-libretro) (GPL-2.0).
 - [BaseOS](https://github.com/pvaibhav/BaseOS) by pvaibhav.
 - Open Sans, Nerd Fonts symbols, and Cascadia Code (SIL Open Font License) for the boot logo.
+- Game Boy palettes from [Lospec](https://lospec.com/palette-list) by Kerrie Lake, Kirokaze,
+  Space Sandwich, Poltergasm, Polyducks, WildLeoKnight, BurakoIRL, Klafooty and Isa.
 
 Game Boy, Game Boy Color and Game Boy Advance are trademarks of Nintendo. Slot Pro is not affiliated
 with Nintendo or Anbernic.

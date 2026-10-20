@@ -1,0 +1,26 @@
+--- a/src/gb/overrides.c	2026-10-19 21:53:40
++++ b/src/gb/overrides.c	2026-10-19 21:53:40
+@@ -751,6 +751,23 @@
+ 	{ "SGB 4-F", SGB_PAL(4F), },
+ 	{ "SGB 4-G", SGB_PAL(4G), },
+ 	{ "SGB 4-H", SGB_PAL(4H), },
++	{ "Ice Cream GB", UNIFORM_PAL(0x6BDF, 0x3ABF, 0x35BD, 0x2CEF), }, // Kerrie Lake
++	{ "Kirokaze", UNIFORM_PAL(0x73DC, 0x2392, 0x4608, 0x28A6), }, // Kirokaze
++	{ "2bit Demichrome", UNIFORM_PAL(0x77BD, 0x4694, 0x354A, 0x1064), }, // Space Sandwich
++	{ "Hollow", UNIFORM_PAL(0x7BFF, 0x5ED8, 0x396A, 0x0C21), }, // Poltergasm
++	{ "Mist GB", UNIFORM_PAL(0x63D8, 0x56EB, 0x3583, 0x0065), }, // Kerrie Lake
++	{ "Rustic GB", UNIFORM_PAL(0x52DD, 0x35B5, 0x310E, 0x1885), }, // Kerrie Lake
++	{ "AYY4", UNIFORM_PAL(0x6FDE, 0x4B3F, 0x39DF, 0x1CC0), }, // Polyducks
++	{ "BGB Green", UNIFORM_PAL(0x6BFC, 0x3B11, 0x29A6, 0x1061), }, // BGB
++	{ "Wish GB", UNIFORM_PAL(0x7F91, 0x662C, 0x754E, 0x24AC), }, // Kerrie Lake
++	{ "Nostalgia", UNIFORM_PAL(0x2F5A, 0x22B4, 0x160E, 0x0948), }, // WildLeoKnight
++	{ "Crimson", UNIFORM_PAL(0x6BFD, 0x2157, 0x246F, 0x1003), }, // WildLeoKnight
++	{ "BLK AQU4", UNIFORM_PAL(0x73D3, 0x5EE0, 0x4560, 0x2CA0), }, // BurakoIRL
++	{ "SpaceHaze", UNIFORM_PAL(0x639F, 0x48D9, 0x586D, 0x1801), }, // WildLeoKnight
++	{ "Velvet Cherry GB", UNIFORM_PAL(0x51D2, 0x34ED, 0x2888, 0x1445), }, // Klafooty
++	{ "Gold GB", UNIFORM_PAL(0x2AB9, 0x2593, 0x1489, 0x0C24), }, // Isa
++	{ "Pokemon SGB", UNIFORM_PAL(0x7FBF, 0x46DE, 0x4DD0, 0x0843), }, // Super Game Boy
++	{ "Link's Awakening SGB", UNIFORM_PAL(0x5BFF, 0x3F0F, 0x222D, 0x10EB), }, // Super Game Boy
+ };
+ 
+ bool GBOverrideColorFind(struct GBCartridgeOverride* override, enum GBColorLookup order) {

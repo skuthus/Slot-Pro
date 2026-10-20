@@ -233,7 +233,7 @@ impl Session {
         }
         if let Some(p) = self.app.take_gb_palette() {
             if let Some(emu) = &self.emu {
-                for (key, value) in crate::core::palette_options(self.app.core(), Some(p)) {
+                for (key, value) in crate::core::palette_options(self.app.core(), p) {
                     emu.set_option(key, &value);
                 }
             }
@@ -426,8 +426,8 @@ impl Session {
         match self.emu.as_ref().map(EmuHandle::state) {
             Some(CoreState::Loading) => {}
             Some(CoreState::Ready) => {
-                if let (true, Some(p), Some(emu)) =
-                    (self.app.palette_live(), self.app.gb_palette(), &self.emu)
+                if let (Some(p), Some(emu)) =
+                    (self.app.game_palette().and_then(|p| p.shown()), &self.emu)
                 {
                     for (key, value) in crate::core::palette_options(self.app.core(), Some(p)) {
                         emu.set_option(key, &value);
@@ -476,8 +476,17 @@ impl Session {
         };
         launch("resume state read");
         let player = self.app.link_player();
-        let palette = crate::core::palette_for(self.app.gb_palette(), platform, &rom, player);
-        self.app.set_palette_live(palette.is_some());
+        let game_palette = crate::core::game_palette(
+            &self.root,
+            platform,
+            stem,
+            &rom,
+            player,
+            core,
+            self.app.gb_colors(),
+        );
+        self.app.set_game_palette(game_palette);
+        let palette = game_palette.and_then(|p| p.shown());
         let opened = open_core(
             &self.root,
             core,
@@ -486,6 +495,11 @@ impl Session {
             palette,
             player,
         );
+        let mut opened = opened;
+        if game_palette.is_some_and(|p| p.sgb && p.shown().is_none()) {
+            // Autodetect would boot a DMG BIOS on the card and stay a DMG; ask for the SGB.
+            opened.core.set_option("mgba_gb_model", "Super Game Boy");
+        }
         self.app.set_named_core(opened.named);
         launch("core opened");
         let sav = persist::read_sav(&self.root, platform, stem);

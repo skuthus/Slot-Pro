@@ -1,0 +1,167 @@
+--- a/libgambatte/libretro/gbcpalettes.h	2026-10-19 21:53:40
++++ b/libgambatte/libretro/gbcpalettes.h	2026-10-19 22:01:48
+@@ -2649,11 +2649,114 @@
+ };
+ 
+ static const unsigned short pixelshift_45_wish[] = {
++	PACK15_4(0x8BE5FF, 0x608FCF, 0x7550E8, 0x622E4C),
++	PACK15_4(0x8BE5FF, 0x608FCF, 0x7550E8, 0x622E4C),
++	PACK15_4(0x8BE5FF, 0x608FCF, 0x7550E8, 0x622E4C)
++};
++
++/* Community favourites from Lospec (lospec.com/palette-list), by their authors as noted. */
++static const unsigned short lospec_ice_cream_gb[] = {	// Ice Cream GB (Kerrie Lake)
++	PACK15_4(0xFFF6D3, 0xF9A875, 0xEB6B6F, 0x7C3F58),
++	PACK15_4(0xFFF6D3, 0xF9A875, 0xEB6B6F, 0x7C3F58),
++	PACK15_4(0xFFF6D3, 0xF9A875, 0xEB6B6F, 0x7C3F58)
++};
++
++static const unsigned short lospec_kirokaze[] = {	// Kirokaze (Kirokaze)
++	PACK15_4(0xE2F3E4, 0x94E344, 0x46878F, 0x332C50),
++	PACK15_4(0xE2F3E4, 0x94E344, 0x46878F, 0x332C50),
++	PACK15_4(0xE2F3E4, 0x94E344, 0x46878F, 0x332C50)
++};
++
++static const unsigned short lospec_2bit_demichrome[] = {	// 2bit Demichrome (Space Sandwich)
++	PACK15_4(0xE9EFEC, 0xA0A08B, 0x555568, 0x211E20),
++	PACK15_4(0xE9EFEC, 0xA0A08B, 0x555568, 0x211E20),
++	PACK15_4(0xE9EFEC, 0xA0A08B, 0x555568, 0x211E20)
++};
++
++static const unsigned short lospec_hollow[] = {	// Hollow (Poltergasm)
++	PACK15_4(0xFAFBF6, 0xC6B7BE, 0x565A75, 0x0F0F1B),
++	PACK15_4(0xFAFBF6, 0xC6B7BE, 0x565A75, 0x0F0F1B),
++	PACK15_4(0xFAFBF6, 0xC6B7BE, 0x565A75, 0x0F0F1B)
++};
++
++static const unsigned short lospec_mist_gb[] = {	// Mist GB (Kerrie Lake)
++	PACK15_4(0xC4F0C2, 0x5AB9A8, 0x1E606E, 0x2D1B00),
++	PACK15_4(0xC4F0C2, 0x5AB9A8, 0x1E606E, 0x2D1B00),
++	PACK15_4(0xC4F0C2, 0x5AB9A8, 0x1E606E, 0x2D1B00)
++};
++
++static const unsigned short lospec_rustic_gb[] = {	// Rustic GB (Kerrie Lake)
++	PACK15_4(0xEDB4A1, 0xA96868, 0x764462, 0x2C2137),
++	PACK15_4(0xEDB4A1, 0xA96868, 0x764462, 0x2C2137),
++	PACK15_4(0xEDB4A1, 0xA96868, 0x764462, 0x2C2137)
++};
++
++static const unsigned short lospec_ayy4[] = {	// AYY4 (Polyducks)
++	PACK15_4(0xF1F2DA, 0xFFCE96, 0xFF7777, 0x00303B),
++	PACK15_4(0xF1F2DA, 0xFFCE96, 0xFF7777, 0x00303B),
++	PACK15_4(0xF1F2DA, 0xFFCE96, 0xFF7777, 0x00303B)
++};
++
++static const unsigned short lospec_bgb_green[] = {	// BGB Green (BGB)
++	PACK15_4(0xE0F8D0, 0x88C070, 0x346856, 0x081820),
++	PACK15_4(0xE0F8D0, 0x88C070, 0x346856, 0x081820),
++	PACK15_4(0xE0F8D0, 0x88C070, 0x346856, 0x081820)
++};
++
++static const unsigned short lospec_wish_gb[] = {	// Wish GB (Kerrie Lake)
+ 	PACK15_4(0x8BE5FF, 0x608FCF, 0x7550E8, 0x622E4C),
+ 	PACK15_4(0x8BE5FF, 0x608FCF, 0x7550E8, 0x622E4C),
+ 	PACK15_4(0x8BE5FF, 0x608FCF, 0x7550E8, 0x622E4C)
++};
++
++static const unsigned short lospec_nostalgia[] = {	// Nostalgia (WildLeoKnight)
++	PACK15_4(0xD0D058, 0xA0A840, 0x708028, 0x405010),
++	PACK15_4(0xD0D058, 0xA0A840, 0x708028, 0x405010),
++	PACK15_4(0xD0D058, 0xA0A840, 0x708028, 0x405010)
+ };
+ 
++static const unsigned short lospec_crimson[] = {	// Crimson (WildLeoKnight)
++	PACK15_4(0xEFF9D6, 0xBA5044, 0x7A1C4B, 0x1B0326),
++	PACK15_4(0xEFF9D6, 0xBA5044, 0x7A1C4B, 0x1B0326),
++	PACK15_4(0xEFF9D6, 0xBA5044, 0x7A1C4B, 0x1B0326)
++};
++
++static const unsigned short lospec_blk_aqu4[] = {	// BLK AQU4 (BurakoIRL)
++	PACK15_4(0x9FF4E5, 0x00B9BE, 0x005F8C, 0x002B59),
++	PACK15_4(0x9FF4E5, 0x00B9BE, 0x005F8C, 0x002B59),
++	PACK15_4(0x9FF4E5, 0x00B9BE, 0x005F8C, 0x002B59)
++};
++
++static const unsigned short lospec_spacehaze[] = {	// SpaceHaze (WildLeoKnight)
++	PACK15_4(0xF8E3C4, 0xCC3495, 0x6B1FB1, 0x0B0630),
++	PACK15_4(0xF8E3C4, 0xCC3495, 0x6B1FB1, 0x0B0630),
++	PACK15_4(0xF8E3C4, 0xCC3495, 0x6B1FB1, 0x0B0630)
++};
++
++static const unsigned short lospec_velvet_cherry_gb[] = {	// Velvet Cherry GB (Klafooty)
++	PACK15_4(0x9775A6, 0x683A68, 0x412752, 0x2D162C),
++	PACK15_4(0x9775A6, 0x683A68, 0x412752, 0x2D162C),
++	PACK15_4(0x9775A6, 0x683A68, 0x412752, 0x2D162C)
++};
++
++static const unsigned short lospec_gold_gb[] = {	// Gold GB (Isa)
++	PACK15_4(0xCFAB51, 0x9D654C, 0x4D222C, 0x210B1B),
++	PACK15_4(0xCFAB51, 0x9D654C, 0x4D222C, 0x210B1B),
++	PACK15_4(0xCFAB51, 0x9D654C, 0x4D222C, 0x210B1B)
++};
++
++static const unsigned short lospec_pokemon_sgb[] = {	// Pokemon SGB (Super Game Boy)
++	PACK15_4(0xFFEFFF, 0xF7B58C, 0x84739C, 0x181010),
++	PACK15_4(0xFFEFFF, 0xF7B58C, 0x84739C, 0x181010),
++	PACK15_4(0xFFEFFF, 0xF7B58C, 0x84739C, 0x181010)
++};
++
++static const unsigned short lospec_link_s_awakening_sgb[] = {	// Link's Awakening SGB (Super Game Boy)
++	PACK15_4(0xFFFFB5, 0x7BC67B, 0x6B8C42, 0x5A3921),
++	PACK15_4(0xFFFFB5, 0x7BC67B, 0x6B8C42, 0x5A3921),
++	PACK15_4(0xFFFFB5, 0x7BC67B, 0x6B8C42, 0x5A3921)
++};
++
+ #undef PACK15_4
+ #undef PACK15_1
+ #undef TO5BIT
+@@ -2661,6 +2764,23 @@
+ struct GbcPaletteEntry { const char *title; const unsigned short *p; };
+ 
+ static const GbcPaletteEntry gbcDirPalettes[] = {
++	{ "Ice Cream GB", lospec_ice_cream_gb },
++	{ "Kirokaze", lospec_kirokaze },
++	{ "2bit Demichrome", lospec_2bit_demichrome },
++	{ "Hollow", lospec_hollow },
++	{ "Mist GB", lospec_mist_gb },
++	{ "Rustic GB", lospec_rustic_gb },
++	{ "AYY4", lospec_ayy4 },
++	{ "BGB Green", lospec_bgb_green },
++	{ "Wish GB", lospec_wish_gb },
++	{ "Nostalgia", lospec_nostalgia },
++	{ "Crimson", lospec_crimson },
++	{ "BLK AQU4", lospec_blk_aqu4 },
++	{ "SpaceHaze", lospec_spacehaze },
++	{ "Velvet Cherry GB", lospec_velvet_cherry_gb },
++	{ "Gold GB", lospec_gold_gb },
++	{ "Pokemon SGB", lospec_pokemon_sgb },
++	{ "Link's Awakening SGB", lospec_link_s_awakening_sgb },
+ 	{ "GB - DMG", gbdmg },    // Original Game Boy
+ 	{ "GB - Light", gblit },  // Original Game Boy Light
+ 	{ "GB - Pocket", gbpoc }, // Original Game Boy Pocket
+--- a/libgambatte/libretro/libretro_core_options.h	2026-10-19 22:22:33
++++ b/libgambatte/libretro/libretro_core_options.h	2026-10-19 22:22:33
+@@ -136,6 +136,23 @@
+          { "Special 2",                NULL },
+          { "Special 3",                NULL },
+          { "Special 4 (TI-83 Legacy)", NULL },
++         { "Ice Cream GB", NULL },
++         { "Kirokaze", NULL },
++         { "2bit Demichrome", NULL },
++         { "Hollow", NULL },
++         { "Mist GB", NULL },
++         { "Rustic GB", NULL },
++         { "AYY4", NULL },
++         { "BGB Green", NULL },
++         { "Wish GB", NULL },
++         { "Nostalgia", NULL },
++         { "Crimson", NULL },
++         { "BLK AQU4", NULL },
++         { "SpaceHaze", NULL },
++         { "Velvet Cherry GB", NULL },
++         { "Gold GB", NULL },
++         { "Pokemon SGB", NULL },
++         { "Link's Awakening SGB", NULL },
+          { "TWB64 - Pack 1",           NULL },
+          { "TWB64 - Pack 2",           NULL },
+          { "TWB64 - Pack 3",           NULL },

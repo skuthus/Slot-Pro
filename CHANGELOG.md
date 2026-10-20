@@ -6,10 +6,16 @@
 
 - Black GBC Frame: a dark gray shell, after Atomic Purple.
 - Reset Game in the in-game menu restarts the game from boot, keeping its save. X undoes it within 30 seconds.
+- Per-game Game Boy palettes: SELECT + L2 / R2 picks a palette for the running GB game alone, starting from Auto.
+- 17 community favorite palettes from Lospec, among them Ice Cream GB, Kirokaze, 2bit Demichrome, Hollow and Mist GB, in both mGBA and Gambatte.
+- Palettes picked for 21 Game Boy games that neither the Game Boy Color nor the Super Game Boy colors, used on Auto.
+- Resume states keep the previous one as a backup, which loads when the card has lost or emptied the newest.
 
 ### Changed
 
 - The Wi-Fi radio stays off except during link play, to save battery. BaseOS turns it on at boot; slot turns it back off.
+- Super Game Boy games run on mGBA by default, in Super Game Boy mode, so they show their own colors. START still switches them to Gambatte.
+- GB Palettes (Screen) turns Game Boy colors on or off. Off shows the DMG's green; it no longer holds one palette for every game.
 
 ## 1.1.3 (2026-10-19)
 

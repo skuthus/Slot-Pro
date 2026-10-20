@@ -2,8 +2,8 @@ mod common;
 
 use common::tmp_root;
 use slot_store::{
-    atomic_write, read_slot_state, write_slot_state, CartTitle, ColourCorrection, GbFrame,
-    GbPalette, Layout, PadKey, Platform, Shader, SlotState, FF_SPEEDS, FF_SPEED_DEFAULT,
+    atomic_write, read_slot_state, write_slot_state, CartTitle, ColourCorrection, GbFrame, Layout,
+    PadKey, Platform, Shader, SlotState, FF_SPEEDS, FF_SPEED_DEFAULT,
 };
 use tempfile::tempdir;
 
@@ -209,8 +209,7 @@ fn a_card_from_before_the_settings_keeps_all_its_values() {
             eject_save: true,
             turbo: true,
             rewind: true,
-            gb_palettes: false,
-            gb_palette: GbPalette::DEFAULT,
+            gb_colors: true,
             clock_24h: true,
             cart_title: CartTitle::Off,
             layout: Layout::default(),
@@ -237,8 +236,7 @@ fn the_quick_menu_settings_round_trip_as_their_own_lines() {
         eject_save: false,
         turbo: false,
         rewind: false,
-        gb_palettes: true,
-        gb_palette: GbPalette::parse("GBC Dark Green →A").unwrap(),
+        gb_colors: false,
         clock_24h: false,
         cart_title: CartTitle::Above,
         gb_frame: GbFrame::Teal,
@@ -259,8 +257,7 @@ fn the_quick_menu_settings_round_trip_as_their_own_lines() {
         "eject_save=0",
         "turbo=0",
         "rewind=0",
-        "gb_palettes=1",
-        "gb_palette=GBC Dark Green →A",
+        "gb_colors=0",
         "clock_24h=0",
         "cart_title=above",
         "layout=b,a,l,r,select,start,x,y",
@@ -410,14 +407,14 @@ fn an_offset_outside_the_range_of_real_zones_reads_as_default() {
 }
 
 #[test]
-fn a_missing_or_unknown_palette_falls_back_to_dmg_green() {
+fn a_missing_or_unreadable_colours_setting_leaves_the_colours_on() {
     let d = tmp_root();
     let known = "cart=Emerald\nbrightness=3\nblue_light=1\nvolume=40\nmuted=0\nclock_set=1\nutc_offset_min=0\n";
     for bad in [
         "",
-        "gb_palette=\n",
-        "gb_palette=Purple\n",
-        "gb_palettes=2\ngb_palette=dmg green\n",
+        "gb_colors=\n",
+        "gb_colors=2\n",
+        "gb_palettes=0\ngb_palette=DMG Green\n",
     ] {
         std::fs::write(d.path().join("Config/slot.state"), format!("{known}{bad}")).unwrap();
         let s = read_slot_state(d.path());
@@ -426,8 +423,7 @@ fn a_missing_or_unknown_palette_falls_back_to_dmg_green() {
             Some("Emerald"),
             "{bad:?} lost the other settings"
         );
-        assert!(!s.gb_palettes, "{bad:?} turned palettes on");
-        assert_eq!(s.gb_palette, GbPalette::DEFAULT, "{bad:?}");
+        assert!(s.gb_colors, "{bad:?} turned the colours off");
     }
 }
 

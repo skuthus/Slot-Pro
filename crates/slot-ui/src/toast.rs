@@ -29,13 +29,15 @@ pub enum Toast {
     FavoriteAdded,
     FavoriteRemoved,
     GameReset,
+    PaletteAuto,
+    SgbColors,
     Palette(GbPalette),
     SlotSaved(usize),
     SlotLoaded(usize),
 }
 
 impl Toast {
-    const FIXED: [Toast; 21] = [
+    const FIXED: [Toast; 23] = [
         Toast::StateSaved,
         Toast::StateLoaded,
         Toast::NeedsGpsp,
@@ -57,6 +59,8 @@ impl Toast {
         Toast::FavoriteAdded,
         Toast::FavoriteRemoved,
         Toast::GameReset,
+        Toast::PaletteAuto,
+        Toast::SgbColors,
     ];
 
     pub fn all() -> Vec<Toast> {
@@ -111,6 +115,8 @@ impl Toast {
             Toast::FavoriteAdded => "Favorite Added",
             Toast::FavoriteRemoved => "Favorite Removed",
             Toast::GameReset => "Game Reset",
+            Toast::PaletteAuto => "Auto Colors",
+            Toast::SgbColors => "SGB Colors",
             Toast::Palette(p) => p.label(),
             Toast::SlotSaved(n) => ["Saved to Slot 1", "Saved to Slot 2", "Saved to Slot 3"]
                 .get(n)

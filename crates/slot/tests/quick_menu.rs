@@ -710,11 +710,11 @@ fn only_the_clock_from_the_menu_offers_b_back() {
 fn gb_palettes_flips_on_either_arrow_and_saves() {
     let (d, mut a, _) = on_carousel();
     open_at(&mut a, QuickRow::GbPalettes);
-    assert_eq!(a.quick_value(QuickRow::GbPalettes), Some(QuickValue::Off));
-    for (btn, want) in [(Btn::Right, true), (Btn::Left, false), (Btn::Left, true)] {
+    assert_eq!(a.quick_value(QuickRow::GbPalettes), Some(QuickValue::On));
+    for (btn, want) in [(Btn::Right, false), (Btn::Left, true), (Btn::Left, false)] {
         press(&mut a, btn);
         assert_eq!(
-            read_slot_state(d.path()).gb_palettes,
+            read_slot_state(d.path()).gb_colors,
             want,
             "{btn:?} never reached the card"
         );

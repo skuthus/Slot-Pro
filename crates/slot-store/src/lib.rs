@@ -19,10 +19,13 @@ pub use atomic::atomic_write;
 pub use cart_shell::{Outline, ShellChoice, ShellFinish, CART_SHELL_FILE, LABELS_SHELL_FILE};
 pub use config::{move_config, CONFIG_DIR};
 pub use core::{
-    core_for, core_for_platform, read_selected_cores, write_selected_core, Core, SELECTED_CORE_FILE,
+    core_for, core_for_platform, default_for_game, read_selected_cores, sgb_cart,
+    write_selected_core, Core, SELECTED_CORE_FILE,
 };
 pub use favorites::{read_favorites, write_favorites};
-pub use gb_palette::GbPalette;
+pub use gb_palette::{
+    curated_palette, gb_header_title, read_game_palette, write_game_palette, GbPalette,
+};
 pub use gba::{header_clean, header_code, header_title, header_title_code};
 pub use layout::{read_game_layout, write_game_layout, Layout, PadKey};
 pub use platform::Platform;

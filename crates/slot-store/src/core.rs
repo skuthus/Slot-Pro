@@ -88,7 +88,34 @@ pub fn core_for_platform(root: &Path, stem: &str, platform: Platform) -> Core {
         .as_deref()
         .and_then(Core::parse)
         .filter(|core| core.runs(platform))
-        .unwrap_or_else(|| Core::default_for(platform))
+        .unwrap_or_else(|| default_for_game(root, stem, platform))
+}
+
+/// The core a cart runs on until START picks one. Super Game Boy carts go to mGBA, the core that
+/// plays the colours they send a Super Game Boy.
+pub fn default_for_game(root: &Path, stem: &str, platform: Platform) -> Core {
+    let games = root.join("Games").join(platform.dir_name());
+    let sgb = platform != Platform::Gba
+        && platform
+            .extensions()
+            .iter()
+            .map(|ext| games.join(format!("{stem}.{ext}")))
+            .find(|p| p.exists())
+            .is_some_and(|rom| sgb_cart(&rom));
+    match sgb {
+        true => Core::Mgba,
+        false => Core::default_for(platform),
+    }
+}
+
+/// A Game Boy cart that colours itself on a Super Game Boy. Carts that also run in colour on a
+/// Game Boy Color are left out: their GBC colours are the richer ones.
+pub fn sgb_cart(rom: &Path) -> bool {
+    use std::io::Read;
+    let mut header = [0u8; 0x150];
+    std::fs::File::open(rom)
+        .and_then(|mut f| f.read_exact(&mut header))
+        .is_ok_and(|_| header[0x146] == 0x03 && header[0x14B] == 0x33 && header[0x143] & 0x80 == 0)
 }
 
 pub fn write_selected_core(root: &Path, stem: &str, core: Core) -> std::io::Result<()> {

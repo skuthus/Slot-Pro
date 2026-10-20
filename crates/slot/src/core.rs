@@ -119,13 +119,67 @@ fn open_named(
     None
 }
 
-pub fn palette_for(
-    chosen: Option<GbPalette>,
+/// How a Game Boy game is coloured: its own choice, slot's pick for it, and whether Auto hands
+/// the colours to the Super Game Boy the cart talks to.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct GamePalette {
+    pub chosen: Option<GbPalette>,
+    pub curated: Option<GbPalette>,
+    pub colors: bool,
+    pub sgb: bool,
+}
+
+impl GamePalette {
+    /// The palette the core is given. None leaves the colours to the core: the GBC's or Super
+    /// Game Boy's own for the cart.
+    pub fn shown(&self) -> Option<GbPalette> {
+        if !self.colors {
+            return Some(GbPalette::DEFAULT);
+        }
+        self.chosen.or(if self.sgb { None } else { self.curated })
+    }
+
+    /// The choice one step along Auto followed by every palette, wrapping.
+    pub fn step(&self, right: bool) -> Option<GbPalette> {
+        let ring: Vec<Option<GbPalette>> = std::iter::once(None)
+            .chain(GbPalette::in_cycle_order().map(Some))
+            .collect();
+        let at = ring.iter().position(|c| *c == self.chosen).unwrap_or(0);
+        let to = match right {
+            true => (at + 1) % ring.len(),
+            false => (at + ring.len() - 1) % ring.len(),
+        };
+        ring[to]
+    }
+}
+
+/// The colouring for a DMG cart, or None for carts palettes don't touch: GBA and GBC games, and
+/// linked play, where both consoles must draw alike.
+pub fn game_palette(
+    root: &Path,
     platform: Platform,
+    stem: &str,
     rom: &Path,
     link: Option<u8>,
-) -> Option<GbPalette> {
-    chosen.filter(|_| link.is_none() && platform != Platform::Gba && dmg_only(rom))
+    core: Core,
+    colors: bool,
+) -> Option<GamePalette> {
+    if link.is_some() || platform == Platform::Gba || !dmg_only(rom) {
+        return None;
+    }
+    let mut header = [0u8; 0x150];
+    {
+        use std::io::Read;
+        std::fs::File::open(rom)
+            .and_then(|mut f| f.read_exact(&mut header))
+            .ok()?;
+    }
+    Some(GamePalette {
+        chosen: slot_store::read_game_palette(root, platform, stem),
+        curated: slot_store::curated_palette(&slot_store::gb_header_title(&header)),
+        colors,
+        sgb: core == Core::Mgba && slot_store::sgb_cart(rom),
+    })
 }
 
 pub fn dmg_only(rom: &Path) -> bool {
@@ -173,8 +227,14 @@ pub fn palette_options(which: Core, palette: Option<GbPalette>) -> Vec<(&'static
             ("gambatte_gb_colorization", "auto".into()),
             ("gambatte_gb_internal_palette", "GBC - Dark Green".into()),
         ],
-        (_, Some(p)) => vec![("mgba_gb_colors", p.core_name().into())],
-        (_, None) => Vec::new(),
+        (_, Some(p)) => vec![
+            ("mgba_gb_colors_preset", "0".into()),
+            ("mgba_gb_colors", p.core_name().into()),
+        ],
+        (_, None) => vec![
+            ("mgba_gb_colors_preset", "1".into()),
+            ("mgba_gb_colors", "GBC Dark Green →A".into()),
+        ],
     }
 }
 

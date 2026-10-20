@@ -1,15 +1,60 @@
 use slot_store::GbPalette;
 
 #[test]
-fn the_list_is_mgba_s_48_palettes_in_its_order() {
+fn the_list_is_mgba_s_48_palettes_then_the_17_community_favourites() {
     let names: Vec<&str> = GbPalette::all().map(GbPalette::core_name).collect();
     assert_eq!(names.len(), GbPalette::COUNT);
-    assert_eq!(GbPalette::COUNT, 48);
+    assert_eq!(GbPalette::COUNT, 65);
     assert_eq!(names[0], "Grayscale");
     assert_eq!(names[1], "DMG Green");
     assert_eq!(names[14], "GBC Dark Green →A");
     assert_eq!(names[16], "SGB 1-A");
     assert_eq!(names[47], "SGB 4-H");
+    assert_eq!(names[48], "Ice Cream GB");
+    assert!(GbPalette::all().take(48).all(|p| !p.community()));
+    assert!(GbPalette::all().skip(48).all(GbPalette::community));
+}
+
+#[test]
+fn the_chord_offers_the_community_favourites_before_the_consoles_own() {
+    let order: Vec<&str> = GbPalette::in_cycle_order()
+        .map(GbPalette::core_name)
+        .collect();
+    assert_eq!(order.len(), GbPalette::COUNT);
+    assert_eq!(order[0], "Ice Cream GB");
+    assert_eq!(order[17], "Grayscale");
+    assert_eq!(*order.last().unwrap(), "SGB 4-H");
+}
+
+#[test]
+fn gambatte_knows_a_community_palette_by_the_same_name_as_mgba() {
+    let p = GbPalette::parse("Kirokaze").unwrap();
+    assert_eq!(p.gambatte_name(), "Kirokaze");
+    assert_eq!(
+        GbPalette::parse("SGB 2-C").unwrap().gambatte_name(),
+        "SGB - 2C"
+    );
+}
+
+#[test]
+fn every_curated_pick_names_a_real_palette() {
+    for title in [
+        "AVENGING SPIRIT",
+        "SAGA",
+        "THE SWORD OFHOPE",
+        "ECLIPSE",
+        "PARODIUS",
+    ] {
+        assert!(
+            slot_store::curated_palette(title).is_some(),
+            "{title} names no palette"
+        );
+    }
+    assert_eq!(
+        slot_store::curated_palette("TETRIS"),
+        None,
+        "Tetris has the GBC's own colours"
+    );
 }
 
 #[test]
@@ -48,7 +93,7 @@ fn next_walks_the_list_and_wraps() {
 fn prev_walks_back_and_wraps() {
     assert_eq!(GbPalette::DEFAULT.prev().core_name(), "Grayscale");
     let first = GbPalette::all().next().unwrap();
-    assert_eq!(first.prev().core_name(), "SGB 4-H");
+    assert_eq!(first.prev().core_name(), "Link's Awakening SGB");
     for p in GbPalette::all() {
         assert_eq!(p.next().prev(), p);
     }

@@ -27,7 +27,7 @@ fn a_cart_gpsp_cannot_link_says_there_is_no_link() {
 fn the_banner_says_what_happened_and_never_what_is_on_screen() {
     let all = Toast::all();
     assert_eq!(
-        all[..21],
+        all[..23],
         [
             Toast::StateSaved,
             Toast::StateLoaded,
@@ -50,12 +50,14 @@ fn the_banner_says_what_happened_and_never_what_is_on_screen() {
             Toast::FavoriteAdded,
             Toast::FavoriteRemoved,
             Toast::GameReset,
+            Toast::PaletteAuto,
+            Toast::SgbColors,
         ],
         "a banner was added or dropped: every face is uploaded by its place in this list"
     );
     let palettes = GbPalette::all().count();
     assert_eq!(
-        all[21..21 + palettes],
+        all[23..23 + palettes],
         GbPalette::all().map(Toast::Palette).collect::<Vec<_>>()[..],
         "the palette banners do not follow the fixed ones in palette order"
     );
@@ -64,7 +66,7 @@ fn the_banner_says_what_happened_and_never_what_is_on_screen() {
         .chain((0..SLOT_COUNT).map(Toast::SlotLoaded))
         .collect();
     assert_eq!(
-        all[21 + palettes..],
+        all[23 + palettes..],
         slots[..],
         "the slot banners do not close the list"
     );
@@ -92,8 +94,10 @@ fn no_toast_is_shrunk_to_fit_its_box() {
     let (top, bottom) = rows(Toast::StateSaved);
     for t in Toast::all().into_iter().filter(|t| !t.alarm()) {
         let (a, b) = rows(t);
+        // A tail below the line, like Q's, may run lower; shrinking lowers the cap height and
+        // raises the baseline.
         assert!(
-            a.abs_diff(top) <= 1 && b.abs_diff(bottom) <= 1,
+            a.abs_diff(top) <= 1 && b + 1 >= bottom,
             "{t:?} sits on rows {a}..{b} where the others sit on {top}..{bottom}, so it was shrunk to fit"
         );
     }

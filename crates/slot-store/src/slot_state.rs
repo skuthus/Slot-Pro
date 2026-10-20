@@ -1,7 +1,6 @@
 use std::path::{Path, PathBuf};
 
 use crate::atomic::atomic_write;
-use crate::gb_palette::GbPalette;
 use crate::layout::Layout;
 use crate::platform::Platform;
 
@@ -43,8 +42,8 @@ pub struct SlotState {
     pub eject_save: bool,
     pub turbo: bool,
     pub rewind: bool,
-    pub gb_palettes: bool,
-    pub gb_palette: GbPalette,
+    /// Game Boy games in colour (Auto or each game's own palette); off shows the DMG's green.
+    pub gb_colors: bool,
     pub clock_24h: bool,
     pub cart_title: CartTitle,
     pub layout: Layout,
@@ -246,8 +245,7 @@ impl Default for SlotState {
             eject_save: true,
             turbo: true,
             rewind: true,
-            gb_palettes: false,
-            gb_palette: GbPalette::DEFAULT,
+            gb_colors: true,
             clock_24h: true,
             cart_title: CartTitle::Off,
             layout: Layout::default(),
@@ -274,7 +272,7 @@ pub fn read_slot_state(root: &Path) -> SlotState {
 
 pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
     let text = format!(
-        "cart={}\ncart_platform={}\nbacklight={}\nblue_light={}\nvolume={}\nvolume_hp={}\nmuted={}\nmuted_hp={}\nclock_set={}\nutc_offset_min={}\nrumble={}\nff_speed={}\nff_sound={}\ncolour_correction={}\nshader_gba={}\nshader_gb={}\neject_save={}\nturbo={}\nrewind={}\ngb_palettes={}\ngb_palette={}\nclock_24h={}\ncart_title={}\nlayout={}\ngb_frame={}\nanalog={}\nstart_favorites={}\nrun_ahead={}\nlcd_ghosting={}\n",
+        "cart={}\ncart_platform={}\nbacklight={}\nblue_light={}\nvolume={}\nvolume_hp={}\nmuted={}\nmuted_hp={}\nclock_set={}\nutc_offset_min={}\nrumble={}\nff_speed={}\nff_sound={}\ncolour_correction={}\nshader_gba={}\nshader_gb={}\neject_save={}\nturbo={}\nrewind={}\ngb_colors={}\nclock_24h={}\ncart_title={}\nlayout={}\ngb_frame={}\nanalog={}\nstart_favorites={}\nrun_ahead={}\nlcd_ghosting={}\n",
         s.cart.as_deref().unwrap_or(""),
         s.cart_platform.map_or(String::new(), platform_key),
         s.brightness,
@@ -294,8 +292,7 @@ pub fn write_slot_state(root: &Path, s: &SlotState) -> std::io::Result<()> {
         s.eject_save as u8,
         s.turbo as u8,
         s.rewind as u8,
-        s.gb_palettes as u8,
-        s.gb_palette.core_name(),
+        s.gb_colors as u8,
         s.clock_24h as u8,
         s.cart_title.name(),
         s.layout.name(),
@@ -329,8 +326,7 @@ fn parse(text: &str) -> Option<SlotState> {
     let mut eject_save = None;
     let mut turbo = None;
     let mut rewind = None;
-    let mut gb_palettes = None;
-    let mut gb_palette = None;
+    let mut gb_colors = None;
     let mut clock_24h = None;
     let mut cart_title = None;
     let mut layout = None;
@@ -363,8 +359,7 @@ fn parse(text: &str) -> Option<SlotState> {
             "eject_save" => eject_save = flag(value),
             "turbo" => turbo = flag(value),
             "rewind" => rewind = flag(value),
-            "gb_palettes" => gb_palettes = flag(value),
-            "gb_palette" => gb_palette = GbPalette::parse(value),
+            "gb_colors" => gb_colors = flag(value),
             "clock_24h" => clock_24h = flag(value),
             "cart_title" => cart_title = CartTitle::parse(value),
             "layout" => layout = Layout::parse(value),
@@ -402,8 +397,7 @@ fn parse(text: &str) -> Option<SlotState> {
         eject_save: eject_save.unwrap_or(fallback.eject_save),
         turbo: turbo.unwrap_or(fallback.turbo),
         rewind: rewind.unwrap_or(fallback.rewind),
-        gb_palettes: gb_palettes.unwrap_or(fallback.gb_palettes),
-        gb_palette: gb_palette.unwrap_or(fallback.gb_palette),
+        gb_colors: gb_colors.unwrap_or(fallback.gb_colors),
         clock_24h: clock_24h.unwrap_or(fallback.clock_24h),
         cart_title: cart_title.unwrap_or(fallback.cart_title),
         layout: layout.unwrap_or(fallback.layout),

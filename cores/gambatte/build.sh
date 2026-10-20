@@ -6,7 +6,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 device_cflags="-mcpu=cortex-a53"
 
 usage() {
-	echo "usage: $0 stamp COMMIT | build COMMIT TARBALL WORKDIR OUT" >&2
+	echo "usage: $0 stamp COMMIT | build|host COMMIT TARBALL WORKDIR OUT" >&2
 	exit 2
 }
 
@@ -26,8 +26,8 @@ stamp() {
 	done
 }
 
-build() {
-	commit="$1" tarball="$2" work="$3" out="$4"
+prepare() {
+	commit="$1" tarball="$2" work="$3"
 	src="$work/gambatte-libretro-$commit"
 
 	rm -rf "$work"
@@ -42,6 +42,11 @@ build() {
 		[ -e "$p" ] || continue
 		git -C "$src" apply -p1 "$p"
 	done
+}
+
+build() {
+	prepare "$1" "$2" "$3"
+	out="$4"
 
 	CFLAGS="$device_cflags" CXXFLAGS="$device_cflags" make -C "$src" -f Makefile.libretro \
 		platform=unix GIT_VERSION="\" $(printf %s "$commit" | cut -c1-7)\"" \
@@ -49,6 +54,20 @@ build() {
 
 	mkdir -p "$(dirname "$out")"
 	cp "$src/gambatte_libretro.so" "$out"
+	stamp "$commit" >"$out.meta"
+}
+
+# The same patched source for this Mac, so host tests run the core the card does.
+host() {
+	prepare "$1" "$2" "$3"
+	out="$4"
+
+	make -C "$src" -f Makefile.libretro platform=osx \
+		GIT_VERSION="\" $(printf %s "$commit" | cut -c1-7)\"" \
+		-j"$(getconf _NPROCESSORS_ONLN)" >/dev/null
+
+	mkdir -p "$(dirname "$out")"
+	cp "$src/gambatte_libretro.dylib" "$out"
 	stamp "$commit" >"$out.meta"
 }
 
@@ -60,6 +79,10 @@ stamp)
 build)
 	[ $# -eq 5 ] && [ -n "$2" ] && [ -n "$3" ] && [ -n "$4" ] && [ -n "$5" ] || usage
 	build "$2" "$3" "$4" "$5"
+	;;
+host)
+	[ $# -eq 5 ] && [ -n "$2" ] && [ -n "$3" ] && [ -n "$4" ] && [ -n "$5" ] || usage
+	host "$2" "$3" "$4" "$5"
 	;;
 *)
 	usage

@@ -7,7 +7,9 @@ use common::{repo_root, session_with_platform, tmp_root_with_carts, tmp_root_wit
 use slot::app::Phase;
 use slot::session::Session;
 use slot_input::{Action, Btn, Millis, RawEvent};
-use slot_store::{read_slot_state, write_slot_state, GbPalette, SlotState};
+use slot_store::{
+    read_game_palette, write_game_palette, write_slot_state, GbPalette, Platform, SlotState,
+};
 use slot_ui::Toast;
 use tempfile::TempDir;
 
@@ -51,15 +53,19 @@ fn palettes_on(root: &Path, on: bool) {
     write_slot_state(
         root,
         &SlotState {
-            gb_palettes: on,
+            gb_colors: on,
             ..SlotState::default()
         },
     )
     .expect("write slot.state");
 }
 
+fn kept(root: &Path) -> Option<GbPalette> {
+    read_game_palette(root, Platform::Gb, "Catrap")
+}
+
 #[test]
-fn select_r2_steps_the_palette_and_names_it_in_a_game_boy_only_game() {
+fn select_r2_moves_a_game_off_auto_onto_the_first_favourite_and_keeps_it_for_that_game() {
     let Some(d) = catrap_with_colour_flag(0x00, true) else {
         eprintln!("no Catrap on this machine's card, skipping");
         return;
@@ -67,25 +73,23 @@ fn select_r2_steps_the_palette_and_names_it_in_a_game_boy_only_game() {
     let (mut s, _motor) = session_with_platform(d.path());
     let mut now = 0;
     play(&mut s, &mut now);
-    assert!(
-        s.app().palette_live(),
-        "palettes are on and the cart is Game Boy only"
-    );
-
-    let before = s.app().gb_palette().expect("palettes are on");
-    s.app_mut().apply(Action::PaletteNext);
-    let after = s.app().gb_palette().expect("palettes are on");
-    assert_eq!(after, before.next());
-    assert_eq!(s.app().toast(), Some(Toast::Palette(after)));
+    let palette = s.app().game_palette().expect("the cart is Game Boy only");
+    assert_eq!(palette.chosen, None, "a fresh game starts on Auto");
     assert_eq!(
-        read_slot_state(d.path()).gb_palette,
-        after,
-        "the pick was not saved"
+        palette.shown(),
+        GbPalette::parse("AYY4"),
+        "Auto shows slot's pick for Catrap"
     );
+
+    s.app_mut().apply(Action::PaletteNext);
+    let first = GbPalette::in_cycle_order().next();
+    assert_eq!(s.app().game_palette().and_then(|p| p.chosen), first);
+    assert_eq!(s.app().toast(), first.map(Toast::Palette));
+    assert_eq!(kept(d.path()), first, "the pick was not saved for the game");
 }
 
 #[test]
-fn select_l2_steps_the_palette_back_and_names_it() {
+fn select_l2_from_auto_wraps_to_the_last_palette_and_back_to_auto() {
     let Some(d) = catrap_with_colour_flag(0x00, true) else {
         eprintln!("no Catrap on this machine's card, skipping");
         return;
@@ -93,16 +97,19 @@ fn select_l2_steps_the_palette_back_and_names_it() {
     let (mut s, _motor) = session_with_platform(d.path());
     let mut now = 0;
     play(&mut s, &mut now);
-    let before = s.app().gb_palette().expect("palettes are on");
     s.app_mut().apply(Action::PalettePrev);
-    let after = s.app().gb_palette().expect("palettes are on");
-    assert_eq!(after, before.prev());
-    assert_eq!(s.app().toast(), Some(Toast::Palette(after)));
-    assert_eq!(read_slot_state(d.path()).gb_palette, after);
+    let last = GbPalette::in_cycle_order().last();
+    assert_eq!(s.app().game_palette().and_then(|p| p.chosen), last);
+    assert_eq!(kept(d.path()), last);
+
+    s.app_mut().apply(Action::PaletteNext);
+    assert_eq!(s.app().game_palette().and_then(|p| p.chosen), None);
+    assert_eq!(s.app().toast(), Some(Toast::PaletteAuto));
+    assert_eq!(kept(d.path()), None, "Auto left a file behind");
 }
 
 #[test]
-fn select_r2_does_nothing_with_palettes_off_or_in_a_colour_game() {
+fn select_r2_does_nothing_with_colours_off_or_in_a_colour_game() {
     for (cgb, on) in [(0x00, false), (0x80, true)] {
         let Some(d) = catrap_with_colour_flag(cgb, on) else {
             eprintln!("no Catrap on this machine's card, skipping");
@@ -111,17 +118,30 @@ fn select_r2_does_nothing_with_palettes_off_or_in_a_colour_game() {
         let (mut s, _motor) = session_with_platform(d.path());
         let mut now = 0;
         play(&mut s, &mut now);
-        assert!(!s.app().palette_live(), "cgb={cgb:#x} on={on}");
-        let before = read_slot_state(d.path()).gb_palette;
         s.app_mut().apply(Action::PaletteNext);
         assert_eq!(
             s.app().toast(),
             None,
             "cgb={cgb:#x} on={on}: a palette toast showed"
         );
-        assert_eq!(read_slot_state(d.path()).gb_palette, before);
-        assert_eq!(GbPalette::DEFAULT, before);
+        assert_eq!(kept(d.path()), None, "cgb={cgb:#x} on={on}");
     }
+}
+
+#[test]
+fn colours_off_shows_the_dmg_green_whatever_the_game_chose() {
+    let Some(d) = catrap_with_colour_flag(0x00, false) else {
+        eprintln!("no Catrap on this machine's card, skipping");
+        return;
+    };
+    write_game_palette(d.path(), Platform::Gb, "Catrap", GbPalette::parse("Hollow")).unwrap();
+    let (mut s, _motor) = session_with_platform(d.path());
+    let mut now = 0;
+    play(&mut s, &mut now);
+    assert_eq!(
+        s.app().game_palette().and_then(|p| p.shown()),
+        Some(GbPalette::DEFAULT)
+    );
 }
 
 #[test]
@@ -131,5 +151,4 @@ fn select_r2_on_the_carousel_does_nothing() {
     let (mut s, _motor) = session_with_platform(d.path());
     s.app_mut().apply(Action::PaletteNext);
     assert_eq!(s.app().toast(), None);
-    assert_eq!(read_slot_state(d.path()).gb_palette, GbPalette::DEFAULT);
 }

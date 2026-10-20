@@ -309,8 +309,8 @@ pub struct App {
     core: Core,
     colour_pending: Option<bool>,
     blend_pending: Option<bool>,
-    palette_live: bool,
-    palette_pending: Option<GbPalette>,
+    palette: Option<crate::core::GamePalette>,
+    palette_pending: Option<Option<GbPalette>>,
     link_player: Option<u8>,
     platform: Platform,
     named_core: bool,
@@ -464,7 +464,7 @@ impl App {
             core: Core::default(),
             colour_pending: None,
             blend_pending: None,
-            palette_live: false,
+            palette: None,
             palette_pending: None,
             link_player: None,
             platform: Platform::default(),
@@ -769,7 +769,7 @@ impl App {
             | QuickRow::LoadState
             | QuickRow::ResetGame
             | QuickRow::EjectGame => None,
-            QuickRow::GbPalettes => Some(QuickValue::flag(self.state.gb_palettes)),
+            QuickRow::GbPalettes => Some(QuickValue::flag(self.state.gb_colors)),
             QuickRow::GbaShader => Some(shader_value(self.state.shader_gba)),
             QuickRow::GbShader => Some(shader_value(self.state.shader_gb)),
             QuickRow::Rumble => Some(QuickValue::flag(self.state.rumble)),
@@ -1405,19 +1405,20 @@ impl App {
         self.colour_pending.take()
     }
 
-    pub fn gb_palette(&self) -> Option<GbPalette> {
-        self.state.gb_palettes.then_some(self.state.gb_palette)
+    pub fn gb_colors(&self) -> bool {
+        self.state.gb_colors
     }
 
-    pub fn set_palette_live(&mut self, live: bool) {
-        self.palette_live = live;
+    pub fn set_game_palette(&mut self, palette: Option<crate::core::GamePalette>) {
+        self.palette = palette;
     }
 
-    pub fn palette_live(&self) -> bool {
-        self.palette_live
+    pub fn game_palette(&self) -> Option<crate::core::GamePalette> {
+        self.palette
     }
 
-    pub fn take_gb_palette(&mut self) -> Option<GbPalette> {
+    /// A palette the chord just picked for the running game; None inside means Auto.
+    pub fn take_gb_palette(&mut self) -> Option<Option<GbPalette>> {
         self.palette_pending.take()
     }
 
@@ -1746,7 +1747,7 @@ impl App {
             QuickRow::EjectSave => s.eject_save = !s.eject_save,
             QuickRow::Turbo => s.turbo = !s.turbo,
             QuickRow::Rewind => s.rewind = !s.rewind,
-            QuickRow::GbPalettes => s.gb_palettes = !s.gb_palettes,
+            QuickRow::GbPalettes => s.gb_colors = !s.gb_colors,
             _ => return,
         }
         self.persist();
@@ -1780,6 +1781,33 @@ impl App {
         self.hud.toast(said, self.now());
     }
 
+    fn step_palette(&mut self, right: bool) {
+        let Some(mut palette) = self.palette.filter(|p| p.colors) else {
+            return;
+        };
+        if !matches!(self.phase, Phase::Playing { .. }) {
+            return;
+        }
+        if palette.sgb && palette.chosen.is_none() {
+            return self.hud.toast(Toast::SgbColors, self.now());
+        }
+        palette.chosen = palette.step(right);
+        self.palette = Some(palette);
+        self.palette_pending = Some(palette.shown());
+        if let (Some(root), Some(cart)) = (&self.root, self.seated()) {
+            if let Err(e) =
+                slot_store::write_game_palette(root, self.platform, cart, palette.chosen)
+            {
+                eprintln!("slot: palette: {e}");
+            }
+        }
+        let said = match palette.chosen {
+            Some(p) => Toast::Palette(p),
+            None => Toast::PaletteAuto,
+        };
+        self.hud.toast(said, self.now());
+    }
+
     fn adjust(&mut self, action: Action) -> bool {
         if action == Action::MuteToggle {
             self.mute_toggle();
@@ -1790,16 +1818,7 @@ impl App {
             return true;
         }
         if let Action::PaletteNext | Action::PalettePrev = action {
-            if self.palette_live && matches!(self.phase, Phase::Playing { .. }) {
-                let to = match action {
-                    Action::PalettePrev => self.state.gb_palette.prev(),
-                    _ => self.state.gb_palette.next(),
-                };
-                self.state.gb_palette = to;
-                self.palette_pending = Some(to);
-                self.persist();
-                self.hud.toast(Toast::Palette(to), self.now());
-            }
+            self.step_palette(action == Action::PaletteNext);
             return true;
         }
         if action == Action::ColourCorrectionToggle {
