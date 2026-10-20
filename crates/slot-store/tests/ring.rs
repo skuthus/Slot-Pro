@@ -462,3 +462,55 @@ fn the_active_slot_is_not_listed_as_a_state_or_a_slot() {
     assert!(r.list().unwrap().is_empty());
     assert!(r.slots().iter().all(Option::is_none));
 }
+
+#[test]
+fn a_new_resume_keeps_the_one_it_replaces_as_a_backup() {
+    let d = tempdir().unwrap();
+    let r = StateRing::new(d.path(), Platform::Gba, Core::Mgba, "Emerald");
+    r.write_resume(&[1u8; 8]).unwrap();
+    r.write_resume(&[2u8; 8]).unwrap();
+    let dir = d.path().join("States/GBA/mgba/Emerald");
+    assert_eq!(
+        std::fs::read(dir.join("resume-prev.state")).unwrap(),
+        [1u8; 8]
+    );
+    assert_eq!(
+        r.read_resume().unwrap().unwrap(),
+        [2u8; 8],
+        "the backup won over the newer state"
+    );
+    assert!(
+        r.list().unwrap().is_empty(),
+        "the backup was listed as a save state"
+    );
+}
+
+#[test]
+fn a_resume_the_card_lost_or_emptied_falls_back_to_the_one_before() {
+    let d = tempdir().unwrap();
+    let r = StateRing::new(d.path(), Platform::Gba, Core::Mgba, "Emerald");
+    r.write_resume(&[1u8; 8]).unwrap();
+    r.write_resume(&[2u8; 8]).unwrap();
+    let resume = d.path().join("States/GBA/mgba/Emerald/resume.state");
+
+    std::fs::write(&resume, b"").unwrap();
+    assert_eq!(
+        r.read_resume().unwrap().unwrap(),
+        [1u8; 8],
+        "an emptied resume hid the backup"
+    );
+
+    std::fs::remove_file(&resume).unwrap();
+    assert_eq!(
+        r.read_resume().unwrap().unwrap(),
+        [1u8; 8],
+        "a lost resume hid the backup"
+    );
+
+    r.write_resume(&[3u8; 8]).unwrap();
+    assert_eq!(
+        std::fs::read(d.path().join("States/GBA/mgba/Emerald/resume-prev.state")).unwrap(),
+        [1u8; 8],
+        "writing over a missing resume threw the backup away"
+    );
+}

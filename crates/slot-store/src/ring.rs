@@ -10,6 +10,7 @@ pub const SLOT_COUNT: usize = 3;
 const STATE_EXT: &str = "state";
 const THUMB_EXT: &str = "png";
 const RESUME: &str = "resume";
+const PREVIOUS: &str = "resume-prev";
 const REFUSED: &str = "resume-refused";
 const ACTIVE_SLOT: &str = "active-slot.txt";
 
@@ -84,17 +85,28 @@ impl StateRing {
         Ok(())
     }
 
+    /// Writes the resume state, keeping the one it replaces as `resume-prev` so a write the card
+    /// loses costs minutes of play rather than everything since the last in-game save.
     pub fn write_resume(&self, state: &[u8]) -> std::io::Result<()> {
         std::fs::create_dir_all(&self.dir)?;
-        atomic_write(&self.path(RESUME, STATE_EXT), state)
+        let resume = self.path(RESUME, STATE_EXT);
+        if std::fs::metadata(&resume).is_ok_and(|m| m.len() > 0) {
+            std::fs::rename(&resume, self.path(PREVIOUS, STATE_EXT))?;
+        }
+        atomic_write(&resume, state)
     }
 
+    /// The resume state, or the one before it when the card has lost or emptied it.
     pub fn read_resume(&self) -> std::io::Result<Option<Vec<u8>>> {
-        match std::fs::read(self.path(RESUME, STATE_EXT)) {
-            Ok(b) => Ok(Some(b)),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            Err(e) => Err(e),
+        for name in [RESUME, PREVIOUS] {
+            match std::fs::read(self.path(name, STATE_EXT)) {
+                Ok(b) if !b.is_empty() => return Ok(Some(b)),
+                Ok(_) => {}
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => return Err(e),
+            }
         }
+        Ok(None)
     }
 
     pub fn retire_resume(&self, stamp: &str) -> std::io::Result<Option<PathBuf>> {
